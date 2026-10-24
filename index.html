@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Time to First Token</title>
+<meta name="description" content="A speed-to-market planner for AI data centers. Set the site, the load and the power strategy; watch the data center build itself stage by stage; get the schedule, the levers, the costs and the risks, every number sourced.">
+<meta property="og:title" content="Time to First Token">
+<meta property="og:description" content="How long from bare land to a data center serving its first token? Plan it, watch it build, get a cited feasibility study.">
+<meta property="og:type" content="website">
+<meta name="theme-color" content="#F3F3F1">
+<link rel="stylesheet" href="css/style.css">
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js" } }
+</script>
+</head>
+<body>
+<div class="page">
+
+  <header class="titleblock">
+    <div>
+      <div class="eyebrow">Speed-to-market planner for AI data centers</div>
+      <h1>Time to First Token</h1>
+      <p class="lede">In AI, time to first token is how long a model takes to start answering. Here it is how long a site takes to go from bare land to a data center serving its first token. Set up the project; the site builds itself as the plan moves; every number is sourced.</p>
+    </div>
+    <div class="sheet" aria-label="Sheet details">
+      <div>Sheet<b>A-01</b></div>
+      <div>Data pack<b id="tb-pack">loading</b></div>
+      <div>Status<b id="tb-status">planning</b></div>
+    </div>
+  </header>
+
+  <div class="frame">
+
+    <!-- ---------------- inputs ---------------- -->
+    <aside class="col-inputs">
+      <section class="card" id="inputs">
+        <h2>Project</h2>
+        <p class="sub">Change anything; the plan and the site update live.</p>
+        <div class="field">
+          <label for="in-state">Location</label>
+          <select id="in-state"></select>
+          <div class="hint" id="in-iso-hint">Grid region</div>
+        </div>
+        <div class="field">
+          <label for="in-mw">IT load, MW</label>
+          <input id="in-mw" type="number" min="10" max="2000" step="10" value="100" inputmode="numeric">
+          <div class="hint">Critical IT load, not facility load. 10 to 2000.</div>
+        </div>
+        <div class="field">
+          <label>Power strategy</label>
+          <div class="seg" id="in-power" role="group" aria-label="Power strategy">
+            <button type="button" data-v="grid" aria-pressed="true">Grid only</button>
+            <button type="button" data-v="bridge" aria-pressed="false">Onsite bridge</button>
+            <button type="button" data-v="hybrid" aria-pressed="false">Hybrid</button>
+          </div>
+          <div class="hint" id="in-power-hint"></div>
+        </div>
+        <div class="field" id="f-bridge">
+          <label for="in-bridge">Onsite generation</label>
+          <select id="in-bridge">
+            <option value="gas_turbine">Gas turbines</option>
+            <option value="recip">Gas reciprocating engines</option>
+            <option value="fuel_cell">Fuel cells</option>
+            <option value="solar_bess">Solar plus batteries</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Redundancy</label>
+          <div class="seg" id="in-redund" role="group" aria-label="Redundancy">
+            <button type="button" data-v="n1" aria-pressed="true">N+1</button>
+            <button type="button" data-v="2n" aria-pressed="false">2N</button>
+            <button type="button" data-v="tier4" aria-pressed="false">Tier IV</button>
+          </div>
+        </div>
+        <div class="field">
+          <label>Cooling</label>
+          <div class="seg" id="in-cool" role="group" aria-label="Cooling approach">
+            <button type="button" data-v="liquid" aria-pressed="true">Liquid, dry coolers</button>
+            <button type="button" data-v="liquid_tower" aria-pressed="false">Liquid, towers</button>
+            <button type="button" data-v="air" aria-pressed="false">Air</button>
+          </div>
+          <div class="hint" id="in-cool-hint"></div>
+        </div>
+        <div class="two">
+          <div class="field">
+            <label for="in-gpu">GPU generation</label>
+            <select id="in-gpu"></select>
+          </div>
+          <div class="field">
+            <label for="in-density">Rack density, kW</label>
+            <input id="in-density" type="number" min="10" max="250" step="5" value="120" inputmode="numeric">
+          </div>
+        </div>
+        <div class="field">
+          <label for="in-target">Target go-live</label>
+          <input id="in-target" type="month" value="2028-06">
+          <div class="hint" id="in-target-hint"></div>
+        </div>
+        <div class="field">
+          <label for="in-start">Project start</label>
+          <input id="in-start" type="month" value="2026-11">
+        </div>
+      </section>
+    </aside>
+
+    <!-- ---------------- scene ---------------- -->
+    <main>
+      <section class="scene-wrap" aria-label="Site build">
+        <canvas id="scene" aria-label="3D view of the site building up stage by stage"></canvas>
+        <div class="fallback" id="fallback">
+          <canvas id="fallback-canvas" width="720" height="420"></canvas>
+          <p>Your browser could not start 3D, so this is the flat view of the same site.</p>
+        </div>
+        <div class="scene-hud">
+          <div>
+            <div class="stage-name" id="hud-stage">Land</div>
+            <div class="stage-date" id="hud-date"></div>
+          </div>
+          <button class="pill" id="b-cut" aria-pressed="false" type="button">Section</button>
+        </div>
+        <div class="hold-tag" id="hold-tag">Held</div>
+        <div class="scene-controls">
+          <button class="btn icon-btn quiet" id="b-play" type="button" aria-label="Play the build">
+            <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path id="play-icon" d="M3 2l9 5-9 5z" fill="currentColor"/></svg>
+          </button>
+          <button class="pill" id="b-reset" type="button">Start over</button>
+          <span class="spacer"></span>
+          <span class="small muted" id="fps" aria-live="off"></span>
+        </div>
+      </section>
+      <div class="card" style="padding:0; margin-top:16px">
+        <div class="scrub">
+          <span class="t" id="scrub-start"></span>
+          <input type="range" id="scrub" min="0" max="1000" value="0" aria-label="Scrub through the build">
+          <span class="t r" id="scrub-end"></span>
+        </div>
+        <div class="rail" id="rail" role="tablist" aria-label="Build stages"></div>
+      </div>
+
+      <section class="card" id="summary">
+        <h2>Summary</h2>
+        <p class="sub" id="summary-line">Working it out.</p>
+        <div class="kpis">
+          <div class="kpi big"><div class="v" id="k-ttft">0 mo</div><div class="l">Time to first token, from project start</div></div>
+          <div class="kpi"><div class="v" id="k-live">2028</div><div class="l">First token</div></div>
+          <div class="kpi"><div class="v" id="k-target">0 mo</div><div class="l">Versus target</div></div>
+          <div class="kpi"><div class="v" id="k-capex">$0</div><div class="l">Capex, facility <span class="tag range">range</span></div></div>
+          <div class="kpi"><div class="v" id="k-opex">$0</div><div class="l">Opex per year <span class="tag range">range</span></div></div>
+          <div class="kpi"><div class="v" id="k-pue">1.0</div><div class="l">Design PUE</div></div>
+          <div class="kpi"><div class="v" id="k-water">0</div><div class="l">Water, million gal per year</div></div>
+        </div>
+        <p class="note" id="summary-cp"></p>
+      </section>
+
+      <section class="card" id="schedule">
+        <h2>Critical path</h2>
+        <p class="sub">Long-lead equipment, interconnection, permits, construction and commissioning. The dark bars are on the critical path.</p>
+        <svg class="gantt" id="gantt" viewBox="0 0 720 400" role="img" aria-label="Gantt chart of the plan"></svg>
+        <div class="legend"><span><i style="background:#16181C"></i>Critical path</span><span><i style="background:#C9CDD6"></i>Has float</span><span><i style="background:#B4540A"></i>Stress-test slip</span><span><i style="background:#2D5BFF"></i>Target go-live</span></div>
+      </section>
+
+      <section class="card" id="stress">
+        <h2>Stress test</h2>
+        <p class="sub">Replay a real kind of delay on this plan. The build pauses at the stage it hits.</p>
+        <div class="stress" id="stress-list"></div>
+      </section>
+
+      <section class="card" id="report">
+        <h2>Feasibility study for this exact project</h2>
+        <p class="sub">A full written study, built from the same data pack and your inputs: site and grid, power strategy, permitting path, design basis, schedule, capex and opex, sensitivities, risks, every figure cited. It is generated and emailed within 24 hours.</p>
+        <form class="emailrow" id="report-form" novalidate>
+          <input type="email" id="f-email" placeholder="you@company.com" autocomplete="email" aria-label="Email address">
+          <button class="btn accent" id="b-report" type="submit">Email me the study</button>
+        </form>
+        <p class="note" id="report-sent" hidden></p>
+        <p class="note">The address is used once, to send the study, and is not kept. The study is not a quote; verify every figure against its source before relying on it.</p>
+      </section>
+    </main>
+
+    <!-- ---------------- outputs ---------------- -->
+    <aside class="col-out">
+      <section class="card" id="levers">
+        <h2>Speed-to-market levers</h2>
+        <p class="sub">What each choice saves or costs, in months and dollars, against this plan.</p>
+        <div id="lever-list"></div>
+      </section>
+
+      <section class="card" id="costs">
+        <h2>Capex and opex</h2>
+        <p class="sub">Ranges from public benchmarks, scaled to your load. <span class="tag range">range</span> marks a published range, <span class="tag assump">assumption</span> marks ours.</p>
+        <table id="cost-table"></table>
+      </section>
+
+      <section class="card" id="risks">
+        <h2>Risk register</h2>
+        <p class="sub">Likelihood and impact on this plan.</p>
+        <div id="risk-list"></div>
+      </section>
+
+      <section class="card" id="export">
+        <h2>Export</h2>
+        <p class="sub">Inputs, assumptions and results.</p>
+        <div style="display:flex; gap:8px; flex-wrap:wrap">
+          <button class="btn quiet" id="b-csv" type="button">CSV</button>
+          <button class="btn quiet" id="b-json" type="button">JSON</button>
+          <button class="btn quiet" id="b-link" type="button">Copy link</button>
+        </div>
+      </section>
+
+      <section class="card" id="sources-card">
+        <details>
+          <summary>Data pack and sources</summary>
+          <p class="note" id="pack-meta"></p>
+          <ol class="sources" id="sources"></ol>
+        </details>
+      </section>
+    </aside>
+  </div>
+
+  <footer class="foot">
+    <span>Time to First Token is a planning tool, not a quote and not engineering, legal or investment advice. Every figure comes from the dated data pack in <code>data/</code>, with its source; assumptions are labelled. Verify before relying on it.</span>
+    <span>Built by Aarya. Code MIT, data CC BY 4.0. Sibling project: <a href="https://github.com/builtbyaarya/solar-factory-game">Solar Factory: Survive to 2030</a>.</span>
+  </footer>
+</div>
+<div class="toast" id="toast" role="status"></div>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
