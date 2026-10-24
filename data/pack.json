@@ -75,7 +75,7 @@
    "code": "IA",
    "name": "Iowa",
    "metro": "Des Moines",
-   "note": "MISO runs the ERAS fast track for ready projects."
+   "note": "Des Moines is in MISO, which runs the ERAS fast track for ready projects; western Iowa is in SPP."
   },
   {
    "code": "WY",
@@ -495,14 +495,14 @@
    "unit": "",
    "kind": "sourced",
    "scope": "IA",
-   "text": "MISO",
+   "text": "MISO (SPP in the west)",
    "source_title": "Electric Power Markets (RTO/ISO national overview)",
    "source_url": "https://www.ferc.gov/electric-power-markets",
    "publisher": "Federal Energy Regulatory Commission",
    "published": "2026",
    "accessed": "2026-10-24",
    "quote": "PJM ... all or part of 13 states",
-   "note": "Balancing authority or ISO for Des Moines. MISO runs the ERAS fast track for ready projects."
+   "note": "Balancing authority or ISO for Des Moines. Des Moines is in MISO, which runs the ERAS fast track for ready projects; western Iowa is in SPP."
   },
   {
    "id": "industrial_price_c_per_kwh__IA",
@@ -838,7 +838,7 @@
    "also_from": [
     "https://www.hklaw.com/en/insights/publications/2025/04/loudoun-county-virginia-eliminates-by-right-data-center-development"
    ],
-   "note": "Prince William County FY26 elapsed site-plan time; Loudoun ended by-right data centers in March 2025, so a rezoning case is the norm"
+   "note": "Prince William County, in Northern Virginia, FY26 elapsed site-plan time; neighbouring Loudoun ended by-right data centers in March 2025, so a rezoning case is the norm"
   },
   {
    "id": "site_plan_building_permit_months",
@@ -854,7 +854,7 @@
    "published": "2026-07-15",
    "accessed": "2026-10-24",
    "quote": "152 county days and 128 applicant/outside-agency days, with 3.71 reviews",
-   "note": "152 county review days for major new construction in Prince William County, in months, used as the US default."
+   "note": "152 county review days for major new construction in Prince William County, Northern Virginia, in months, used as the US default"
   },
   {
    "id": "air_permit_minor_months",
@@ -1001,7 +1001,7 @@
   },
   {
    "id": "water_permit_months",
-   "label": "Cooling-water discharge permit (NPDES)",
+   "label": "Water supply agreement and discharge approval (proxy)",
    "category": "permit",
    "value": 8.1,
    "unit": "months",
@@ -1034,7 +1034,7 @@
    "also_from": [
     "https://www.troutman.com/insights/troutman-pepper-summary-of-ferc-order-no-2023-on-generator-interconnection-reform/"
    ],
-   "note": "EMT study duration for large loads (Brattle); FERC Order 2023 sets a 150-day cluster study for generators."
+   "note": "EMT study duration for large loads, from the Brattle Group, an economic consultancy; in PJM the utility, not the ISO, runs the load study"
   },
   {
    "id": "large_load_study_months__ERCOT",
@@ -1053,7 +1053,7 @@
    "also_from": [
     "https://www.ercot.com/files/docs/2026/04/01/ERCOT_LargeLoad_Update_April2026_B-C_-Hearing.pdf"
    ],
-   "note": "ERCOT Batch Zero study, 9 months; batches run about every 6 months."
+   "note": "ERCOT, the Texas grid operator: Batch Zero study of 9 months, with batches about every 6 months"
   },
   {
    "id": "large_load_study_months__MISO",
@@ -1104,7 +1104,7 @@
    "also_from": [
     "https://emp.lbl.gov/sites/default/files/2024-04/Queued%20Up%202024%20Edition_R1.pdf"
    ],
-   "note": "National average wait for data-center power, 4 years (JLL 2026), in months; LBNL's generator median is 5 years request-to-COD."
+   "note": "national average wait for data-center power, 4 years per JLL, a commercial real estate firm (2026), in months; LBNL's generator median is 5 years request-to-COD"
   },
   {
    "id": "utility_energization_wait_months__VA",
@@ -1125,7 +1125,7 @@
    "also_from": [
     "https://www.pjm.com/-/media/DotCom/committees-groups/subcommittees/las/2026/20260929/20260929-item-5ai---dominion_energy.pdf"
    ],
-   "note": "Dominion letter: 4 to 7 years for new large loads, in months; 54 GW contracted against a 4.8 GW billing peak."
+   "note": "a letter from Dominion Energy, the Virginia utility: 4 to 7 years for new large loads, in months; 54 GW contracted against a 4.8 GW billing peak"
   },
   {
    "id": "lead_lpt_months",
@@ -1144,9 +1144,10 @@
    "accessed": "2026-10-24",
    "quote": "falling by 10 weeks to an average of 128 weeks",
    "also_from": [
+    "https://www.woodmac.com/news/opinion/supply-shortages-and-an-inflexible-market-give-rise-to-high-power-transformer-lead-times/",
     "https://www.powermag.com/wp-content/uploads/2026/01/making-the-connection-executive-summary-september-2025.pdf"
    ],
-   "note": "128 weeks average, 80 to 210, in months; GSU transformers run 143 weeks."
+   "note": "128 weeks average (Wood Mackenzie with American Clean Power, 2025), with the 80 to 210 week range from Wood Mackenzie's 2024 survey, in months; GSU transformers run 143 weeks"
   },
   {
    "id": "substation_build_months",
@@ -1162,7 +1163,43 @@
    "published": "2025-12-08",
    "accessed": "2026-10-24",
    "quote": "Expected in-service date is 12/01/2027",
-   "note": "a Dominion example in PJM filings, used as the US default"
+   "note": "an example from Dominion Energy, the Virginia utility, in PJM filings, used as the US default"
+  },
+  {
+   "id": "gas_supply_months",
+   "label": "Gas supply: pipeline lateral and supply agreement",
+   "category": "construction",
+   "value": 18,
+   "unit": "months",
+   "kind": "assumption",
+   "scope": "US",
+   "low": 12,
+   "high": 30,
+   "source_title": "",
+   "source_url": "",
+   "publisher": "Time to First Token (assumption)",
+   "published": "2026.10.24",
+   "accessed": "2026-10-24",
+   "quote": "",
+   "note": "No public figure found for a data-center-scale lateral and firm supply agreement; 18 months (12 to 30) is our assumption. It gates the onsite plant's connection."
+  },
+  {
+   "id": "lead_accelerator_months",
+   "label": "Accelerator order to delivery",
+   "category": "lead_time",
+   "value": 9,
+   "unit": "months",
+   "kind": "assumption",
+   "scope": "US",
+   "low": 6,
+   "high": 12,
+   "source_title": "",
+   "source_url": "",
+   "publisher": "Time to First Token (assumption)",
+   "published": "2026.10.24",
+   "accessed": "2026-10-24",
+   "quote": "",
+   "note": "No public allocation lead time for NVL72-class racks; 9 months (6 to 12) is our assumption, released from the basis of design."
   },
   {
    "id": "transmission_build_months",
@@ -1200,7 +1237,7 @@
     "https://www.eia.gov/outlooks/aeo/assumptions/pdf/elec_cost_perf.pdf",
     "https://www.spglobal.com/energy/en/news-research/latest-news/electric-power/063026-siemens-energy-lifts-global-gas-turbine-outlook-on-data-center-demand"
    ],
-   "note": "Siemens Energy: 3 or more years for new turbines, EIA's pre-shortage assumption was 2 years; Siemens is booked out to FY2028."
+   "note": "Siemens Energy, a turbine maker: 3 or more years for new turbines, where EIA's pre-shortage assumption was 2 years; Siemens is booked out to FY2028"
   },
   {
    "id": "lead_recip_months",
@@ -1218,7 +1255,7 @@
    "published": "2026-08-27",
    "accessed": "2026-10-24",
    "quote": "Generators: 60 to 100 weeks",
-   "note": "Generator sets are reciprocating engines: 60 to 100 weeks (Cushman & Wakefield) x 12/52.18."
+   "note": "generator sets are reciprocating engines: 60 to 100 weeks per Cushman & Wakefield, a commercial real estate firm, in months"
   },
   {
    "id": "lead_fuel_cell_months",
@@ -1234,7 +1271,7 @@
    "published": "2025-07-24",
    "accessed": "2026-10-24",
    "quote": "deliver on-site power for an entire data center within 90 days",
-   "note": "Bloom Energy: 90 days, a vendor claim; / 30.44."
+   "note": "Bloom Energy, a fuel cell maker: 90 days, a vendor claim, in months"
   },
   {
    "id": "lead_solar_bess_months",
@@ -1250,7 +1287,7 @@
    "published": "2026",
    "accessed": "2026-10-24",
    "quote": "Average U.S. equipment lead time is 42 weeks, 83% above 2019 levels",
-   "note": "No solar or battery specific lead time found; the JLL US average equipment lead time of 42 weeks is used."
+   "note": "no solar or battery specific lead time found; the US average equipment lead time of 42 weeks from JLL, a commercial real estate firm, is used"
   },
   {
    "id": "install_gas_turbine_months",
@@ -1266,7 +1303,7 @@
    "published": "2026-02-27",
    "accessed": "2026-10-24",
    "quote": "power infrastructure (Months 4\u201310)",
-   "note": "Power infrastructure stage duration from an industry build guide (secondary), used for the onsite plant install."
+   "note": "power infrastructure stage duration from an industry build guide (secondary), used for the onsite plant install"
   },
   {
    "id": "install_recip_months",
@@ -1282,7 +1319,7 @@
    "published": "2026-02-27",
    "accessed": "2026-10-24",
    "quote": "power infrastructure (Months 4\u201310)",
-   "note": "Power infrastructure stage duration from an industry build guide (secondary), used for the onsite plant install."
+   "note": "power infrastructure stage duration from an industry build guide (secondary), used for the onsite plant install"
   },
   {
    "id": "install_fuel_cell_months",
@@ -1298,7 +1335,7 @@
    "published": "2026-02-27",
    "accessed": "2026-10-24",
    "quote": "power infrastructure (Months 4\u201310)",
-   "note": "Power infrastructure stage duration from an industry build guide (secondary), used for the onsite plant install."
+   "note": "power infrastructure stage duration from an industry build guide (secondary), used for the onsite plant install"
   },
   {
    "id": "install_solar_bess_months",
@@ -1314,7 +1351,7 @@
    "published": "2026-02-27",
    "accessed": "2026-10-24",
    "quote": "power infrastructure (Months 4\u201310)",
-   "note": "Power infrastructure stage duration from an industry build guide (secondary), used for the onsite plant install."
+   "note": "power infrastructure stage duration from an industry build guide (secondary), used for the onsite plant install"
   },
   {
    "id": "grading_civil_months",
@@ -1495,7 +1532,7 @@
    "published": "2026-06-26",
    "accessed": "2026-10-24",
    "quote": "10\u201314 weeks across L1\u2013L5",
-   "note": "30% of the 10 to 14 week L1 to L5 window (secondary)."
+   "note": "30% of the 10 to 14 week L1 to L5 window (secondary); that window is for a conventional build and already includes its own short IST, so L1 to L4 are taken from it and the L5 figure for a liquid-cooled AI hall is added separately, which is conservative by up to a month"
   },
   {
    "id": "cx_l3_l4_months",
@@ -1728,13 +1765,16 @@
    "unit": "months",
    "kind": "derived",
    "scope": "US",
-   "source_title": "Making the connection: Meeting the electric T&D supply chain challenge (executive summary)",
-   "source_url": "https://www.powermag.com/wp-content/uploads/2026/01/making-the-connection-executive-summary-september-2025.pdf",
-   "publisher": "Wood Mackenzie with American Clean Power",
-   "published": "2025-09",
+   "source_title": "Supply shortages and an inflexible market give rise to high power transformer lead times",
+   "source_url": "https://www.woodmac.com/news/opinion/supply-shortages-and-an-inflexible-market-give-rise-to-high-power-transformer-lead-times/",
+   "publisher": "Wood Mackenzie",
+   "published": "2024-04-02",
    "accessed": "2026-10-24",
-   "quote": "falling by 10 weeks to an average of 128 weeks",
-   "note": "Top of the published range (210 weeks) less the average (128): 82 weeks x 12/52.18."
+   "quote": "have lead times ranging from 80 to 210 weeks",
+   "also_from": [
+    "https://www.powermag.com/wp-content/uploads/2026/01/making-the-connection-executive-summary-september-2025.pdf"
+   ],
+   "note": "Top of Wood Mackenzie's 2024 range (210 weeks) less the 2025 average (128): 82 weeks, in months"
   },
   {
    "id": "stress_interconnection_months",
@@ -1963,7 +2003,7 @@
    "unit": "probability",
    "kind": "sourced",
    "scope": "US",
-   "text": "46% report difficulty hiring (Uptime)",
+   "text": "46%: share of operators reporting difficulty hiring (Uptime)",
    "source_title": "Uptime Institute Global Data Center Survey 2025 (Keynote Report 180)",
    "source_url": "https://datacenter.uptimeinstitute.com/rs/711-RIA-145/images/2025.Annual.Survey.Report.pdf?version=0",
    "publisher": "Uptime Institute",
@@ -2271,7 +2311,7 @@
   },
   {
    "id": "onsite_oversize_factor",
-   "label": "Onsite plant sizing, kW per kW IT",
+   "label": "Generation sizing, kW per kW IT",
    "category": "capex",
    "value": 1.75,
    "unit": "ratio",
@@ -2283,7 +2323,7 @@
    "published": "2025-08-18",
    "accessed": "2026-10-24",
    "quote": "a generator (or generator system) capable of supplying at least 1,400kW of continuous power",
-   "note": "1,750 kW of generation per MW of IT: IT x PUE plus a 20 to 25% buffer (Generator Source)."
+   "note": "1,750 kW of generation per MW of IT: IT times PUE plus a 20 to 25% buffer, per Generator Source, a generator supplier"
   },
   {
    "id": "solar_bess_pv_ratio",
@@ -2389,7 +2429,7 @@
    "published": "2020-02",
    "accessed": "2026-10-24",
    "quote": "Internal Combustion Engines ... $1810 ... 8295",
-   "note": "EIA/Sargent & Lundy 2020 study, Case 4 internal combustion engines, 4 x 5.6 MW, $1,810/kW in 2019 dollars (not escalated)."
+   "note": "EIA/Sargent & Lundy 2020 study, Case 4 internal combustion engines, 4 x 5.6 MW, $1,810/kW in 2019 dollars, not escalated to the 2023 dollars of the turbine figure."
   },
   {
    "id": "capex_fuel_cell_per_kw",
@@ -2469,7 +2509,7 @@
    "published": "2026-10-06",
    "accessed": "2026-10-24",
    "quote": "Henry Hub spot price will average $3.16 per million British thermal units",
-   "note": "EIA Short-Term Energy Outlook, October 2026: 2027 average forecast; 2026 is $3.48."
+   "note": "EIA Short-Term Energy Outlook, October 2026: 2027 average forecast; 2026 is $3.48. A hub price: basis and transport to the site are not added, which is an assumption."
   },
   {
    "id": "gpu_gb200",
@@ -2644,7 +2684,7 @@
    "also_from": [
     "https://www.datacenters.google/efficiency"
    ],
-   "note": "Evaporative (tower) cooling as run by AWS (1.14) and Google (1.09); the AWS fleet figure is used."
+   "note": "A fleet proxy: evaporative cooling as run by AWS (1.14) and Google (1.09); the AWS fleet figure is used."
   },
   {
    "id": "pue__air",
@@ -2688,6 +2728,24 @@
    "id": "wue__liquid_tower",
    "label": "WUE, liquid cooling with towers",
    "category": "energy",
+   "value": 0.465,
+   "unit": "L per kWh IT",
+   "kind": "sourced",
+   "scope": "US",
+   "low": 0.45,
+   "high": 0.48,
+   "source_title": "2024 United States Data Center Energy Usage Report",
+   "source_url": "https://escholarship.org/content/qt32d6m0d1/qt32d6m0d1.pdf",
+   "publisher": "Lawrence Berkeley National Laboratory",
+   "published": "2024-12",
+   "accessed": "2026-10-24",
+   "quote": "reaching between 0.45 and 0.48 L/kWh",
+   "note": "LBNL's 2028 projection for the US fleet (0.45 to 0.48 L/kWh), which it attributes to the shift to liquid cooling with evaporative heat rejection; a fleet proxy for tower cooling."
+  },
+  {
+   "id": "wue__air",
+   "label": "WUE, air cooling",
+   "category": "energy",
    "value": 0.36,
    "unit": "L per kWh IT",
    "kind": "sourced",
@@ -2698,23 +2756,7 @@
    "published": "2024-12",
    "accessed": "2026-10-24",
    "quote": "which stays just over 0.36 L/kWh through 2023",
-   "note": "LBNL US average 2023, a fleet dominated by evaporative cooling."
-  },
-  {
-   "id": "wue__air",
-   "label": "WUE, air cooling",
-   "category": "energy",
-   "value": 0.3,
-   "unit": "L per kWh IT",
-   "kind": "sourced",
-   "scope": "US",
-   "source_title": "2024 United States Data Center Energy Usage Report (LBNL-2001637)",
-   "source_url": "https://climate.mit.edu/sites/default/files/2025-02/lbnl-2024-united-states-data-center-energy-usage-report.pdf",
-   "publisher": "Lawrence Berkeley National Laboratory",
-   "published": "2024-12",
-   "accessed": "2026-10-24",
-   "quote": "Some hyperscale facilities report WUE values for similar systems of 0.1-0.3 L/kWh",
-   "note": "High end of LBNL's hyperscale range."
+   "note": "LBNL US fleet average for 2023, a fleet of mostly air-cooled halls; air-cooled chillers themselves use no water, so this is a fleet proxy that includes evaporative heat rejection."
   },
   {
    "id": "it_utilization",

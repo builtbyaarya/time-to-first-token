@@ -107,6 +107,10 @@ def ym(s):
     return date(int(y), int(m), 1).strftime("%B %Y")
 
 
+def Math(share):
+    return f"{share * 100:.0f}\\%"
+
+
 def note(vid):
     """A pack note as a parenthetical: no trailing full stop, first letter lower-case unless it is a name."""
     n = V[vid].get("note", "").strip().rstrip(".")
@@ -164,6 +168,7 @@ class Cites:
         u = tex(v["unit"]) if unit and v.get("unit") else ""
         u = u.replace("USD per", "\\$ per").replace("USD million", "\\$ million").replace("USD/", "\\$/").replace("USD million per MW IT", "\\$M per MW").replace("fiscal year", "").replace("tons/year", "tons a year").replace("hours/year", "hours a year")
         if year and not unit: u = ""
+        if u == "months" and s == "1": u = "month"
         return s + (" " + u if u else "") + self.c(vid)
 
 
@@ -330,7 +335,7 @@ PREAMBLE = r"""\documentclass[11pt]{article}
 def gantt_tikz(R, inp):
     tasks = [t for t in R["tasks"] if t["months"] > 0.05]
     span = max(R["end"], R["targetMonths"]) + 2
-    W = 8.9; L = 6.1; rowh = 0.34; H = rowh * len(tasks)
+    W = 8.4; L = 5.9; rowh = 0.34; H = rowh * len(tasks)
     x = lambda m: L + (m / span) * W
     out = [r"\begin{tikzpicture}[x=1cm,y=1cm,font=\scriptsize]"]
     sy, sm = map(int, inp["start"].split("-"))
@@ -342,7 +347,7 @@ def gantt_tikz(R, inp):
             out.append(f"\\draw[gray!20] ({x(m):.3f},0.1) -- ({x(m):.3f},{-H:.3f});")
     for i, t in enumerate(tasks):
         y = -(i + 0.5) * rowh
-        out.append(f"\\node[anchor=east, inner sep=1pt] at ({L - 0.15:.3f},{y:.3f}) {{{tex(short(t['label'], 44))}}};")
+        out.append(f"\\node[anchor=east, inner sep=1pt] at ({L - 0.15:.3f},{y:.3f}) {{{tex(short(t['label'], 36))}}};")
         col = "black" if t["critical"] else "gray!45"
         x0, x1, xs = x(t["es"]), x(t["ef"]), x(t["ef"] - t.get("slip", 0))
         out.append(f"\\fill[{col}, rounded corners=1pt] ({x0:.3f},{y - 0.11:.3f}) rectangle ({max(x0 + 0.03, xs):.3f},{y + 0.11:.3f});")
@@ -386,7 +391,7 @@ def build_tex(R, inp, pdflatex=False):
     A(r"{\Large\bfseries Time to First Token}\par\vspace{4pt}")
     A(r"{\large Feasibility study}\par\vspace{18pt}")
     A(f"{{\\Large\\bfseries {num(mw)} MW AI data center, {tex(st['metro'])}, {tex(st['name'])}}}\\par\\vspace{{6pt}}")
-    A(f"{tex(POWER_LABEL[inp['power']].capitalize())}{', ' + tex(gen) if onsite else ''}; {RED_LABEL[inp['redund']]}; {tex(COOL_LABEL[inp['cool']])}; {tex(gpu)} racks at {num(inp['density'])} kW.\\par\\vspace{{24pt}}")
+    A(f"{tex(POWER_LABEL[inp['power']].capitalize())}{', ' + tex(gen) if onsite else ''}; { {"n1": "N+1", "2n": "2N", "tier4": "2N, Tier IV certified"}[inp['redund']] }; {tex(COOL_LABEL[inp['cool']])}; {tex(gpu)} racks at {num(inp['density'])} kW.\\par\\vspace{{24pt}}")
     A(r"\begin{tabular}{@{}ll@{}}")
     A(f"Prepared & {date.today().strftime('%d %B %Y')} \\\\")
     A(f"Data pack & {tex(PACK['version'])}, every value read {tex(PACK['accessed'])} \\\\")
@@ -402,14 +407,15 @@ def build_tex(R, inp, pdflatex=False):
 
     # ---------------------------------------------------------------- 1 executive summary
     A(r"\section{Executive summary and recommendation}")
-    critical_names = ", ".join(tex(x["label"].split(":")[0].split(",")[0]) for x in crit)
+    seen = []; [seen.append(n) for n in (x["label"].split(":")[0].split(",")[0] for x in crit) if n not in seen]
+    critical_names = " > ".join(tex(n) for n in seen)
     longest = max(R["tasks"], key=lambda x: x["months"])
     A(f"The project reaches its first token {first:.0f} months after a {start} start, in {live}, "
       + (f"{abs(vs):.0f} months ahead of the {target} target." if vs >= 0.5 else f"{abs(vs):.0f} months after the {target} target." if vs <= -0.5 else f"on the {target} target.")
-      + (f" Full grid power follows in {full}." if onsite and R['fullPower'] > first + 0.5 else ""))
+      + (f" The first token comes from the {Math(R['phaseShare'])} of racks the onsite plant carries; the remaining racks follow utility energization, and full power is {full}." if inp['power'] == 'hybrid' and R['fullPower'] > first + 0.5 else f" Full grid power follows in {full}; until then the site runs on the onsite plant." if onsite and R['fullPower'] > first + 0.5 else f" The remaining racks follow in {full}." if R['fullPower'] > first + 0.5 else ""))
     A(f"The critical path runs through {critical_names}; the longest single item is {tex(longest['label'].lower())} at {longest['months']:.0f} months.")
-    A(f"The facility, land and power works cost {musd(cap['site'][0])} to {musd(cap['site'][1])} before accelerators, built from the Cushman \\& Wakefield 2026 all-in build cost of \\$8.9 million to \\$23.3 million per MW{C.c('capex_shell_per_mw')} split by its published shares and scaled by the redundancy, cooling and metro factors in Section 7; the {tex(gpu)} racks add {musd(cap['compute'][0])} to {musd(cap['compute'][1])}{C.c('compute_capex_per_mw__' + inp['gpu'])}. "
-      f"Opex runs {musd(en['opex'][0])} to {musd(en['opex'][1])} a year at a design PUE of {en['pue']:.2f}{C.c('pue__' + inp['cool'])} and {en['waterMgal']:.{0 if en['waterMgal'] >= 1 else 2}f} million gallons of water a year{C.c('wue__' + inp['cool'])}.")
+    A(f"The facility, land and power works cost {musd(cap['site'][0])} to {musd(cap['site'][1])} before accelerators, built from the 2026 all-in build cost published by Cushman \\& Wakefield, a commercial real estate firm, of \\$8.9 million to \\$23.3 million per MW{C.c('capex_shell_per_mw')} split by its published shares and scaled by the redundancy and cooling factors in Section 7; the {tex(gpu)} racks add {musd(cap['compute'][0])} to {musd(cap['compute'][1])}{C.c('compute_capex_per_mw__' + inp['gpu'])}. "
+      f"Steady-state opex runs {musd(en['opex'][0])} to {musd(en['opex'][1])} a year at a design PUE of {en['pue']:.2f}{C.c('pue__' + inp['cool'])} and {en['waterMgal']:.{0 if en['waterMgal'] >= 1 else 2}f} million gallons of water a year{C.c('wue__' + inp['cool'])}.")
     # recommendation logic
     lev = sorted(R["levers"], key=lambda l: -l["months"])
     best = [l for l in lev if l["months"] >= 1]
@@ -423,14 +429,16 @@ def build_tex(R, inp, pdflatex=False):
         rec.append(f"The risk to watch is {tex(top_risk['label'].lower())}: a likelihood of {tex(top_risk['likelihoodLabel'].split(':')[0])}{C.c('risk_' + top_risk['id'] + '_likelihood')}, and {top_risk['impact']:.0f} months on the plan if it lands.")
     A(" ".join(rec) if rec else "No single lever moves the date by a month or more; the plan is bound by the construction sequence itself.")
     A(r"\begin{keyresult}")
-    A(f"Time to first token: {first:.0f} months ({live}). Facility capex {musd(cap['site'][0])} to {musd(cap['site'][1])}; opex {musd(en['opex'][0])} to {musd(en['opex'][1])} a year.")
+    A(f"Time to first token: {first:.0f} months ({live}). Facility and power capex {musd(cap['site'][0])} to {musd(cap['site'][1])}; steady-state opex {musd(en['opex'][0])} to {musd(en['opex'][1])} a year.")
     A(r"\end{keyresult}")
-    A(r"\textbf{Recommendation.} " + ("Proceed with the plan as set up; " if vs >= 0 else "The target date does not hold as set up; ") + (f"take the first lever (\\emph{{{tex(best[0]['label'])}}}) and lock the long-lead orders in the first quarter." if best else "lock the long-lead orders in the first quarter.") + " Re-run this study when the utility returns its study results, since the energization date is the figure most likely to move.")
+    A(r"\textbf{Recommendation.} " + ("Proceed with the plan as set up; " if vs >= 0 else "The target date does not hold as set up; ") + (f"take the first lever (\\emph{{{tex(best[0]['label'])}}}) and lock the long-lead orders in the first quarter." if best else "lock the long-lead orders in the first quarter.") + (" Re-run this study when the utility returns its study results, since the energization date is the figure most likely to move." if inp['power'] != 'bridge' else " Re-run this study once the turbine slot and the gas supply agreement are confirmed, since those two dates set the plan."))
 
     # ---------------------------------------------------------------- 2 site and grid
     A(r"\section{Site and grid}")
     isov = V[f"iso__{inp['state']}"]
-    A(f"The site is in {tex(st['metro'])}, {tex(st['name'])}, in the {tex(isov['text'])} footprint according to {C.who('iso__' + inp['state'])}{C.c('iso__' + inp['state'])}. {tex(st['note'])}")
+    ISO_DESC = {"ERCOT": "ERCOT, the Texas grid operator", "PJM": "PJM, the grid operator for the mid-Atlantic and parts of the Midwest", "MISO": "MISO, the Midwest grid operator", "SPP": "SPP, the grid operator for the central plains", "WECC": "the Western grid (WECC), outside any ISO", "SERC": "the Southeast (SERC), served by a vertically integrated utility", "TVA": "TVA, the federal Tennessee Valley Authority"}
+    isod = ISO_DESC.get(iso, tex(isov['text']))
+    A(f"The site is in {tex(st['metro'])}, {tex(st['name'])}, in the footprint of {isod} ({tex(isov['text'])}) according to {C.who('iso__' + inp['state'])}{C.c('iso__' + inp['state'])}. {tex(st['note'])}")
     price_id = f"industrial_price_c_per_kwh__{inp['state']}" if f"industrial_price_c_per_kwh__{inp['state']}" in V else "industrial_price_c_per_kwh"
     A(f"Industrial electricity in {tex(st['name'])} cost {C.val(price_id, 2)} in August 2026, preliminary, as reported by {C.who(price_id)}{C.c(price_id)}; the US average is {C.val('industrial_price_c_per_kwh', 2)}.")
     wait_id = f"utility_energization_wait_months__{inp['state']}" if f"utility_energization_wait_months__{inp['state']}" in V else "utility_energization_wait_months"
@@ -454,19 +462,20 @@ def build_tex(R, inp, pdflatex=False):
     # ---------------------------------------------------------------- 3 power strategy
     A(r"\section{Power strategy}")
     A(f"The plan is {tex(POWER_LABEL[inp['power']])}. The substation is a {num(V['substation_build_months']['value'])}-month build{C.c('substation_build_months')} ({note('substation_build_months')}), and the large power transformers lead {C.val('lead_lpt_months')} ({note('lead_lpt_months')}); energization is taken as the later of the works finishing and the utility wait above. "
-      + (f"The transformers are ordered at project start, at risk of a specification change after the study." if inp.get('levers', {}).get('lptEarly') else "The transformers are ordered when the study ends; ordering at project start is one of the levers in Section 8."))
+      + (f"Transformer slots are reserved at project start (customer-side units, or a funded reservation of the utility's), at risk of a specification change after the study." if inp.get('levers', {}).get('lptEarly') else "The transformer order is released when the study ends; for a utility-served load the utility procures the substation units and the developer its own customer-side units, so the lead time applies on both sides of the fence. Reserving slots at project start is one of the levers in Section 8."))
     if onsite:
         share = 1 if inp["power"] == "bridge" else V["hybrid_onsite_share"]["value"]
         kw = mw * 1000 * share * V["onsite_oversize_factor"]["value"]
-        A(f"The onsite plant is {tex(gen)} sized at {num(kw / 1000, 0)} MW: {num(mw * share)} MW of IT at {C.val('onsite_oversize_factor', 2, unit=False)} kW of generation per kW of IT, which is IT times PUE plus a 20 to 25\\% buffer. "
-          f"Lead time is {C.val('lead_' + inp['bridge'] + '_months')} ({note('lead_' + inp['bridge'] + '_months')}) and the install and connection {C.val('install_' + inp['bridge'] + '_months')}.")
+        A(f"The onsite plant is {tex(gen)} with a net site rating of about {num(kw / 1000, 0)} MW: {num(mw * share)} MW of IT at {C.val('onsite_oversize_factor', 2, unit=False)} kW of generation per kW of IT, which is IT times PUE plus a 20 to 25\\% buffer; the unit count and N+1 arrangement are a design decision outside this study. "
+          + (f"The plant carries {Math(share)} of the load for good, so the first token comes from that tranche of racks and the rest wait for the grid. " if inp['power'] == 'hybrid' else "The plant carries the whole site until the utility energizes it, then stays as backup. ")
+          + f"Lead time is {C.val('lead_' + inp['bridge'] + '_months')} ({note('lead_' + inp['bridge'] + '_months')}) and the install and connection {t['geninst']['months']:.1f} months on this plan (the pack's {C.val('install_' + inp['bridge'] + '_months')} before size scaling).")
         if inp["bridge"] in ("gas_turbine", "recip"):
             hr = V[f"heat_rate_{inp['bridge']}_btu_per_kwh"]
-            A(f"Fuel: at a heat rate of {C.val('heat_rate_' + inp['bridge'] + '_btu_per_kwh')} and a gas price of {C.val('gas_price_usd_per_mmbtu', 2)}, the plant burns {musd(en['fuel'])} of gas a year at the modelled load. "
-              f"Turbine supply is tight: Siemens Energy, a turbine maker, quotes three or more years{C.c('lead_gas_turbine_months')} and is booked to fiscal {C.val('ctx_siemens_gas_turbine_booked_out_fy', unit=False)}, and GE Vernova reports {C.val('ctx_gev_gas_backlog_and_slots_gw')} of backlog and reserved slots.")
+            A(f"Gas supply is its own task: a pipeline lateral and a firm supply agreement, {C.val('gas_supply_months')} ({note('gas_supply_months')}), gating the plant's connection. Fuel: at a heat rate of {C.val('heat_rate_' + inp['bridge'] + '_btu_per_kwh')} and a Henry Hub price of {C.val('gas_price_usd_per_mmbtu', 2)} with no basis or transport adder (an assumption), the plant burns {musd(en['fuel'] or en['bridgeFuelYear'])} of gas a year at the modelled load{' while on bridge power' if inp['power'] == 'bridge' else ''}. "
+              f"Turbine supply is tight: Siemens Energy, a turbine maker, quotes three or more years{C.c('lead_gas_turbine_months')} and is booked to fiscal {C.val('ctx_siemens_gas_turbine_booked_out_fy', unit=False)}, and GE Vernova, the other large turbine maker, reports {C.val('ctx_gev_gas_backlog_and_slots_gw')} of backlog and reserved slots.")
         if inp["bridge"] == "solar_bess":
             A(f"The plant is sized at {C.val('solar_bess_pv_ratio', 0, unit=False)} kW of PV per kW served and {C.val('solar_bess_hours', 0)} of battery, the pack's own assumption and EIA's reference battery; it cannot carry the load through the night without the grid, so this option is a daytime bridge.")
-        A(f"The plant is also an air permit question (Section 4). " + ("A gas turbine or engine fleet at this scale is a major source under the Clean Air Act, so the permit is on the plan's critical path for the onsite works." if inp["bridge"] in ("gas_turbine", "recip") else "Fuel cells and batteries are not combustion sources, so the air permit stays a minor one for the standby generators."))
+        A(f"The plant is also an air permit question (Section 4). " + ("A gas turbine or engine fleet at this scale is a major source under the Clean Air Act, so the permit gates the plant's installation." if inp["bridge"] in ("gas_turbine", "recip") else "Fuel cells and batteries are not combustion sources, so the air permit stays a minor one for the standby generators."))
     else:
         A(f"With no onsite plant, the only generation on site is the standby fleet of diesel generators, sized at {C.val('onsite_oversize_factor', 2, unit=False)} kW per kW of IT; their lead time is {C.val('lead_genset_months')} and their air permit is a minor-source one.")
         if "bridge" in [x["label"] for x in []]:
@@ -485,7 +494,7 @@ def build_tex(R, inp, pdflatex=False):
     A(f"Four approvals gate the build. Zoning and site plan approval takes {C.val(zid)} ({note(zid)}). The building permit follows at {C.val('site_plan_building_permit_months')} ({note('site_plan_building_permit_months')}). "
       f"The air permit is a {'major-source' if big else 'minor-source'} one at {C.val(aid)} ({note(aid)}); the major-source thresholds are {C.val('ctx_air_major_source_threshold_tpy')} for Title V and {C.val('ctx_air_psd_major_source_other_tpy')} for PSD, and standby generators are assessed at {C.val('ctx_epa_emergency_generator_pte_default_hours')} of potential operation.")
     if inp["cool"] == "liquid_tower":
-        A(f"Cooling towers need a discharge permit, which takes {C.val('water_permit_months')} ({note('water_permit_months')}) and must be in hand before the integrated systems test.")
+        A(f"Cooling towers need a water supply agreement and a discharge approval; the pack carries {C.val('water_permit_months')} as a proxy ({note('water_permit_months')}), and it must be in hand before the integrated systems test.")
     else:
         A("Dry coolers run a closed loop, so no cooling-water discharge permit is on the path." if inp["cool"] == "liquid" else "Air cooling has no cooling-water permit on the path.")
     A(f"No federal action is assumed, so NEPA is not on the path; if one appears (federal land, a federal loan, an Army Corps permit), an environmental assessment averages {C.val('ctx_nepa_ea_mean_months')} and a full impact statement a median of {C.val('ctx_nepa_eis_median_years')}. "
@@ -503,8 +512,8 @@ def build_tex(R, inp, pdflatex=False):
         ("Design PUE", f"{en['pue']:.2f}", C.c('pue__' + inp['cool'])),
         ("WUE", f"{en['wue']} L per kWh of IT", C.c('wue__' + inp['cool'])),
         ("IT utilization", f"{C.val('it_utilization', 2, unit=False)} of rated", ""),
-        ("Redundancy", RED_LABEL[inp['redund']] + (f", capex factor {cap['redundF']:.2f}" if cap['redundF'] != 1 else ""), C.c('redundancy_2n_capex_factor', 'redundancy_tier4_capex_factor') if inp['redund'] != 'n1' else ""),
-        ("Standby generation", f"{C.val('onsite_oversize_factor', 2, unit=False)} kW per kW IT", ""),
+        ("Redundancy", {"n1": "N+1", "2n": "2N, fault tolerant", "tier4": "2N with Uptime Tier IV certification"}[inp['redund']] + (f", capex factor {cap['redundF']:.2f}" if cap['redundF'] != 1 else ""), C.c('redundancy_2n_capex_factor', 'redundancy_tier4_capex_factor') if inp['redund'] != 'n1' else ""),
+        ("Generation sizing", f"{C.val('onsite_oversize_factor', 2, unit=False)} kW per kW IT, applied to the onsite plant; standby generators per the redundancy choice", ""),
         ("Commissioning", "Level 1 to Level 5, integrated systems test last" + (f"; Tier IV site visit adds {C.val('tier4_cx_extra_months')}" if inp['redund'] == 'tier4' else ""), C.c('cx_l5_ist_months')),
     ]
     for a, b, c in rows:
@@ -521,13 +530,13 @@ def build_tex(R, inp, pdflatex=False):
     A(gantt_tikz(R, inp))
     A(f"\\caption{{Plan from {start}. Dark bars are on the critical path, grey bars have float; the number after each bar is its duration in months. The dashed line is the {target} target and the solid line is first token in {live}.}}")
     A(r"\end{figure}")
-    A(r"\begin{longtable}{@{}p{3.6in}rrrr@{}}\caption{Tasks, months from project start.}\\\toprule Task & Start & End & Months & Float \\\midrule\endfirsthead\toprule Task & Start & End & Months & Float \\\midrule\endhead\bottomrule\endfoot")
+    A(r"\begin{longtable}{@{}p{3.6in}rrrr@{}}\caption{Tasks, months from project start. Float is measured against first token; tasks that finish after it are marked.}\\\toprule Task & Start & End & Months & Float \\\midrule\endfirsthead\toprule Task & Start & End & Months & Float \\\midrule\endhead\bottomrule\endfoot")
     for x in R["tasks"]:
         if x["months"] < 0.05:
             continue
-        A(f"{'\\textbf{' + tex(x['label']) + '}' if x['critical'] else tex(x['label'])} & {x['es']:.1f} & {x['ef']:.1f} & {x['months']:.1f} & {max(0, x['float']):.1f} \\\\")
+        A(f"{'\\textbf{' + tex(x['label']) + '}' if x['critical'] else tex(x['label'])} & {x['es']:.1f} & {x['ef']:.1f} & {x['months']:.1f} & {'after first token' if x.get('beyond') else f'{x[chr(102)+chr(108)+chr(111)+chr(97)+chr(116)]:.1f}'} \\\\")
     A(r"\end{longtable}")
-    A("The durations come from the pack: " + "; ".join([
+    A("The durations come from the pack, quoted here before the size scaling that Table 2 applies: " + "; ".join([
         f"survey and planning {C.val('survey_geotech_months')}", f"design to permit release {C.val('design_months')}", f"foundations {C.val('foundations_months')}", f"steel and roof {C.val('shell_steel_roof_months')}",
         f"electrical fit-out {C.val('electrical_fitout_months')}", f"mechanical fit-out {C.val('mechanical_fitout_months')}", f"white space {C.val('whitespace_fitout_months')}",
         f"commissioning L1 to L4 {C.val('cx_l1_l2_months')} plus {C.val('cx_l3_l4_months')}", f"L5 integrated systems test {C.val('cx_l5_ist_months' if inp['cool'] != 'air' else 'cx_l5_ist_months_air')}",
@@ -537,9 +546,9 @@ def build_tex(R, inp, pdflatex=False):
 
     # ---------------------------------------------------------------- 7 capex and opex
     A(r"\section{Capex and opex}")
-    A(f"Facility capex is built from the Cushman \\& Wakefield 2026 US all-in range of \\$8.9 million to \\$23.3 million per MW excluding accelerators{C.c('capex_shell_per_mw')}, split by its published cost shares, then scaled:")
-    A(r"\begin{equation}C_{\mathrm{fac}} = P_{\mathrm{IT}} \sum_i c_i \; f_{\mathrm{red}} \, f_{\mathrm{cool}} \, f_{\mathrm{metro}}\end{equation}")
-    A(f"with $P_{{\\mathrm{{IT}}}} = {num(mw)}$ MW, $f_{{\\mathrm{{red}}}} = {cap['redundF']:.2f}$, $f_{{\\mathrm{{cool}}}} = {cap['coolF']:.3f}$ and $f_{{\\mathrm{{metro}}}} = {cap['metroF']:.2f}$. "
+    A(f"Facility capex is built from Cushman \\& Wakefield's 2026 US all-in range of \\$8.9 million to \\$23.3 million per MW excluding accelerators{C.c('capex_shell_per_mw')}, split by its published cost shares, then scaled:")
+    A(r"\begin{equation}C_{\mathrm{fac}} = P_{\mathrm{IT}} \sum_i c_i \; f_{\mathrm{red}} \, f_{\mathrm{cool}}\end{equation}")
+    A(f"with $P_{{\\mathrm{{IT}}}} = {num(mw)}$ MW, $f_{{\\mathrm{{red}}}} = {cap['redundF']:.2f}$ and $f_{{\\mathrm{{cool}}}} = {cap['coolF']:.3f}$; no metro index is applied, since the pack has none yet. "
       + (f"The 2N factor is one plus the {C.val('ctx_capex_share_power_infra_pct' if 'ctx_capex_share_power_infra_pct' in V else 'capex_electrical_per_mw', unit=False)}\\% power share times the UPS doubling that Schneider reports for 2N{C.c('redundancy_2n_capex_factor')}. " if inp['redund'] != 'n1' else "")
       + (f"Air cooling removes JLL's liquid-cooling premium of \\$1 million to \\$2 million per MW{C.c('capex_air_cooling_factor')}. " if inp['cool'] == 'air' else ""))
     A(r"\begin{table}[!htb]\caption{Capex, \$ million.}\centering\small\begin{tabular}{@{}lrrl@{}}\toprule Item & Low & High & Source \\\midrule")
@@ -552,13 +561,14 @@ def build_tex(R, inp, pdflatex=False):
     A(f"Costs are rising: all-in build cost is up {C.val('ctx_capex_inflation_since_2024_pct', unit=False)}\\% since late 2024 and switchgear {C.val('ctx_capex_switchgear_price_rise_pct', unit=False)}\\%; JLL's global average is {C.val('ctx_capex_global_avg_per_mw_2026', unit=False)} \\$M per MW with a {C.val('ctx_capex_ai_premium_us_pct', unit=False)}\\% AI premium in the US.")
     A("Electricity is the first line of opex:")
     A(r"\begin{equation}E = P_{\mathrm{IT}} \, u \, \mathrm{PUE} \times 8760\,\mathrm{h}, \qquad \mathrm{Opex}_{\mathrm{elec}} = E \, p\end{equation}")
-    A(f"With $u = {en['util']}$, $\\mathrm{{PUE}} = {en['pue']}$ and $p = {en['priceC']:.2f}$ cents per kWh, $E = {num(en['mwhYear'] / 1000, 0)}$ GWh a year and the bill is {musd(en['elecM'])}" + (" while on grid power; on bridge power the fuel line replaces it" if inp['power'] == 'bridge' else "") + ". "
-      f"Staff, maintenance and other opex is {C.val('opex_staff_maint_per_mw_year', 2, unit=False)} \\$M per MW-year ({note('opex_staff_maint_per_mw_year')}).")
-    A(r"\begin{table}[!htb]\caption{Opex, \$ million a year.}\centering\small\begin{tabular}{@{}lrr@{}}\toprule Item & Low & High \\\midrule")
-    if inp["power"] != "bridge":
-        A(f"Electricity & {num(en['elecM'])} & {num(en['elecM'])} \\\\")
+    A(f"With $u = {en['util']}$, $\\mathrm{{PUE}} = {en['pue']}$ and $p = {en['priceC']:.2f}$ cents per kWh, $E = {en['mwhYear'] / 1000:.0f}$ GWh a year" + (f", of which the grid serves {Math(1 - en['onsiteShare'])}, so the bill is {musd(en['elecGrid'])} and the onsite share burns {musd(en['fuel'])} of gas" if inp['power'] == 'hybrid' else f" and the bill is {musd(en['elecGrid'])}" + (f" at steady state; while on bridge power the plant burns about {musd(en['bridgeFuelYear'])} of gas a year instead" if inp['power'] == 'bridge' else "")) + ". "
+      f"Staff, maintenance and other opex is \\$M {V['opex_staff_maint_per_mw_year']['low']:.1f} to {V['opex_staff_maint_per_mw_year']['high']:.1f} per MW-year{C.c('opex_staff_maint_per_mw_year')} ({note('opex_staff_maint_per_mw_year')}). The utilization and PUE carry published ranges (0.6 to 0.8; 1.15 to 1.35); the electricity line uses the central values.")
+    A(r"\begin{table}[!htb]\caption{Opex, \$ million a year, steady state.}\centering\small\begin{tabular}{@{}lrr@{}}\toprule Item & Low & High \\\midrule")
+    A(f"Electricity{', grid share' if en['onsiteShare'] else ''} & {num(en['elecGrid'])} & {num(en['elecGrid'])} \\\\")
     if en["fuel"]:
-        A(f"Natural gas & {num(en['fuel'])} & {num(en['fuel'])} \\\\")
+        A(f"Natural gas, onsite share, hub price & {num(en['fuel'])} & {num(en['fuel'])} \\\\")
+    if en["bridgeFuelYear"]:
+        A(f"(Gas per year while on bridge power, not in the total) & {num(en['bridgeFuelYear'])} & {num(en['bridgeFuelYear'])} \\\\")
     A(f"Staff, maintenance and other & {num(en['staff'][0])} & {num(en['staff'][1])} \\\\")
     A(f"\\textbf{{Total}} & \\textbf{{{num(en['opex'][0])}}} & \\textbf{{{num(en['opex'][1])}}} \\\\")
     A(r"\bottomrule\end{tabular}\end{table}")
@@ -566,20 +576,23 @@ def build_tex(R, inp, pdflatex=False):
 
     # ---------------------------------------------------------------- 8 sensitivities
     A(r"\section{Sensitivities}")
-    A("Each line changes one input and re-runs the plan. Months are first token from project start; capex and opex are the midpoints of the ranges.")
+    A("Each line changes one input and re-runs the plan. Months are first token from project start; capex and opex are the midpoints of the ranges." + (f" Air cooling is left out because it is impractical above {V['air_cooling_max_kw_per_rack']['value']:.0f} kW per rack." if inp['density'] > V['air_cooling_max_kw_per_rack']['value'] else ""))
     A(r"\begin{table}[!htb]\caption{One-at-a-time sensitivities against the base case.}\centering\small\begin{tabular}{@{}lrrr@{}}\toprule Case & First token, months & Capex, \$M mid & Opex, \$M a year mid \\\midrule")
     A(f"\\textbf{{Base case}} & \\textbf{{{first:.0f}}} & \\textbf{{{num((cap['total'][0] + cap['total'][1]) / 2)}}} & \\textbf{{{num((en['opex'][0] + en['opex'][1]) / 2)}}} \\\\")
     for sdef in R["sensitivities"]:
-        A(f"{tex(sdef['label'])} & {sdef['firstToken']:.0f} & {num((sdef['capex'][0] + sdef['capex'][1]) / 2)} & {num((sdef['opex'][0] + sdef['opex'][1]) / 2)} \\\\")
+        if sdef['label'] == 'Cooling: air' and inp['density'] > V['air_cooling_max_kw_per_rack']['value']:
+            continue
+        lab = sdef['label'].replace('liquid_tower', 'liquid, towers').replace('Cooling: liquid', 'Cooling: liquid, dry coolers').replace('Cooling: liquid, dry coolers, towers', 'Cooling: liquid, towers').replace('Redundancy: n1', 'Redundancy: N+1').replace('Redundancy: 2n', 'Redundancy: 2N').replace('Redundancy: tier4', 'Redundancy: 2N, Tier IV certified').replace('Power: grid', 'Power: grid only').replace('Power: bridge', 'Power: onsite bridge').replace('Power: hybrid', 'Power: hybrid')
+        A(f"{tex(lab)} & {sdef['firstToken']:.0f} & {num((sdef['capex'][0] + sdef['capex'][1]) / 2)} & {num((sdef['opex'][0] + sdef['opex'][1]) / 2)} \\\\")
     A(r"\bottomrule\end{tabular}\end{table}")
     A(r"\textbf{Speed-to-market levers.} " + " ".join(f"{tex(l['label'])}: {('%.0f months faster' % l['months']) if l['months'] >= 0.5 else ('%.0f months slower' % -l['months']) if l['months'] <= -0.5 else 'same time'}, {('saves ' + musd(l['cost'])) if l['cost'] >= 1 else ('costs ' + musd(-l['cost'])) if l['cost'] <= -1 else 'about the same cost'}." for l in R["levers"]))
 
     # ---------------------------------------------------------------- 9 risks
     A(r"\section{Risks and mitigations}")
-    A(f"Likelihoods are built from JLL's finding that {C.val('ctx_delay_share_projects_late_3mo_2025', unit=False)}\\% of 2025 projects ran three or more months late and the Uptime Institute's split of delay drivers: equipment {C.val('ctx_delay_driver_equipment_pct', unit=False)}\\%, power availability {C.val('ctx_delay_driver_power_availability_pct', unit=False)}\\%, permitting {C.val('ctx_delay_driver_permitting_legislation_pct', unit=False)}\\%. Impact is the slip in first token when the stress is replayed on this plan; a zero means the task has float.")
-    A(r"\begin{longtable}{@{}p{1.45in}p{0.8in}>{\raggedleft\arraybackslash}p{0.75in}p{2.55in}@{}}\caption{Risk register.}\\\toprule Risk & Likelihood & Impact, months & Mitigation \\\midrule\endfirsthead\toprule Risk & Likelihood & Impact, months & Mitigation \\\midrule\endhead\bottomrule\endfoot")
+    A(f"Likelihoods are built from JLL's finding that {C.val('ctx_delay_share_projects_late_3mo_2025', unit=False)}\\% of 2025 projects ran three or more months late and the Uptime Institute's split of delay drivers: equipment {C.val('ctx_delay_driver_equipment_pct', unit=False)}\\%, power availability {C.val('ctx_delay_driver_power_availability_pct', unit=False)}\\%, permitting {C.val('ctx_delay_driver_permitting_legislation_pct', unit=False)}\\%. Impact is the slip in first token when the stress is replayed on this plan, and in full power where that differs; a zero means the task has float against that date.")
+    A(r"\begin{longtable}{@{}p{1.4in}p{0.75in}>{\raggedleft\arraybackslash}p{0.55in}>{\raggedleft\arraybackslash}p{0.55in}p{2.25in}@{}}\caption{Risk register. Impact in months on first token and on full power.}\\\toprule Risk & Likelihood & First token & Full power & Mitigation \\\midrule\endfirsthead\toprule Risk & Likelihood & First token & Full power & Mitigation \\\midrule\endhead\bottomrule\endfoot")
     for r in R["risks"]:
-        A(f"{tex(r['label'])}{C.c('stress_' + r['id'] + '_months', 'risk_' + r['id'] + '_likelihood')} & {tex(r['likelihoodLabel'].split(':')[0])} & {r['impact']:.0f} & {tex(r['mitigation'])} \\\\")
+        A(f"{tex(r['label'])}{C.c('stress_' + r['id'] + '_months', 'risk_' + r['id'] + '_likelihood')} & {tex(r['likelihoodLabel'].split(':')[0])} & {r['impact']:.0f} & {r['impactFull']:.0f} & {tex(r['mitigation'])} \\\\")
     A(r"\end{longtable}")
     A("Stress tests replayed on the plan: " + "; ".join(f"{tex(v['label'].lower())} (+{v['slip']:.0f} months on the task) moves first token to {ym(v['liveDate'])}" for v in R["stress"].values()) + ".")
 
@@ -592,7 +605,7 @@ def build_tex(R, inp, pdflatex=False):
         if key.startswith("assumption:"):
             A(f"\\item \\textbf{{Assumption.}} " + "; ".join(f"{tex(V[x]['label'])}: {tex(str(V[x]['value']))} {tex(V[x].get('unit', ''))} ({tex(V[x]['note'])})" for x in vids))
             continue
-        vals = "; ".join(f"{tex(V[x]['label'])} = {tex(str(V[x]['value']))}{' ' + tex(V[x]['unit']).replace('USD', chr(92) + '$') if V[x].get('unit') else ''} [{V[x]['kind']}]" for x in vids)
+        vals = "; ".join(f"{tex(V[x]['label'])} = {tex(str(V[x].get('text') if V[x].get('text') and not V[x].get('unit') else V[x]['value']))}{' ' + tex(V[x]['unit']).replace('USD', chr(92) + '$') if V[x].get('unit') else ''} [{V[x]['kind']}]" for x in vids)
         A(f"\\item {tex(v0['publisher'])}, \\emph{{{tex(v0['source_title'])}}} ({tex(str(v0.get('published', '')))}). \\url{{{v0['source_url']}}} Read {tex(v0['accessed'])}. {vals}.")
     A(r"\end{enumerate}")
     A(r"\begin{keyresult}")

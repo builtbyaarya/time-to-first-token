@@ -1,6 +1,6 @@
 # Sources
 
-Data pack 2026.10.24, every value read on 2026-10-24. 203 values from 76 sources. Each value in `data/pack.json` carries `kind`: `sourced` (read off the page), `derived` (arithmetic on sourced values; the note says the arithmetic) or `assumption` (ours, no public figure).
+Data pack 2026.10.24, every value read on 2026-10-24. 205 values from 77 sources. Each value in `data/pack.json` carries `kind`: `sourced` (read off the page), `derived` (arithmetic on sourced values; the note says the arithmetic) or `assumption` (ours, no public figure).
 
 | # | Publisher | Title | Published | Values |
 |---|---|---|---|---|
@@ -31,8 +31,8 @@ Data pack 2026.10.24, every value read on 2026-10-24. 203 values from 76 sources
 | 25 | Grid Strategies | [Power Demand Forecasts Revised Up for Third Year Running, Led by Data Centers (National Load Growth Report 2025)](https://gridstrategiesllc.com/wp-content/uploads/Grid-Strategies-National-Load-Growth-Report-2025.pdf) | 2025-11 | `ctx_us_peak_growth_2025_2030_gw`, `ctx_transmission_large_build_years` |
 | 26 | Introl (secondary, citing NVIDIA GTC 2025) | [NVIDIA Vera Rubin breaks the GPU mold with 600-kilowatt racks and million-token memories](https://introl.com/blog/nvidia-vera-rubin-gpu-600kw-racks-2027) | 2025-09-25 | `gpu_rubin` |
 | 27 | Latitude Media (citing JLL 2026 Global Data Center Outlook) | [Three major risks slowing the $3T data center boom](https://www.latitudemedia.com/news/three-major-risks-slowing-the-3t-data-center-boom/) | 2026-01-06 | `stress_labour_months`, `risk_transformer_likelihood`, `risk_interconnection_likelihood`, `risk_utility_likelihood`, `risk_permit_likelihood`, `risk_turbine_likelihood`, `risk_gpu_likelihood`, `ctx_delay_share_projects_late_3mo_2025` |
-| 28 | Lawrence Berkeley National Laboratory | [2024 United States Data Center Energy Usage Report](https://escholarship.org/content/qt32d6m0d1/qt32d6m0d1.pdf) | 2024-12 | `pue__liquid`, `ctx_dc_electricity_us_2023_twh`, `ctx_dc_electricity_us_2028_twh` |
-| 29 | Lawrence Berkeley National Laboratory | [2024 United States Data Center Energy Usage Report (LBNL-2001637)](https://climate.mit.edu/sites/default/files/2025-02/lbnl-2024-united-states-data-center-energy-usage-report.pdf) | 2024-12 | `wue__liquid`, `wue__liquid_tower`, `wue__air`, `it_utilization`, `ctx_pue_us_national_2023_lbnl` |
+| 28 | Lawrence Berkeley National Laboratory | [2024 United States Data Center Energy Usage Report](https://escholarship.org/content/qt32d6m0d1/qt32d6m0d1.pdf) | 2024-12 | `pue__liquid`, `wue__liquid_tower`, `ctx_dc_electricity_us_2023_twh`, `ctx_dc_electricity_us_2028_twh` |
+| 29 | Lawrence Berkeley National Laboratory | [2024 United States Data Center Energy Usage Report (LBNL-2001637)](https://climate.mit.edu/sites/default/files/2025-02/lbnl-2024-united-states-data-center-energy-usage-report.pdf) | 2024-12 | `wue__liquid`, `wue__air`, `it_utilization`, `ctx_pue_us_national_2023_lbnl` |
 | 30 | Lawrence Berkeley National Laboratory | [Queued Up: 2025 Edition (interconnection queue data through end of 2024)](https://emp.lbl.gov/sites/default/files/2025-12/Queued%20Up%202025%20Edition%20-%2012.15.2025.pdf) | 2025-12 | `ctx_ic_gen_request_to_cod_months`, `ctx_ic_gen_completion_rate_capacity_pct`, `ctx_ic_queue_total_gw_us` |
 | 31 | Lawrence Berkeley National Laboratory | [Queued Up: 2024 Edition](https://emp.lbl.gov/sites/default/files/2024-04/Queued%20Up%202024%20Edition_R1.pdf) | 2024-04 | `ctx_interconnection_median_request_to_cod_years` |
 | 32 | Lenovo Press | [Lenovo NVIDIA GB300 NVL72 Rack-Scale AI Solution (LP2357)](https://lenovopress.lenovo.com/lp2357-lenovo-nvidia-gb300-nvl72-rack-scale-ai) | 2025 | `gpu_gb300` |
@@ -77,28 +77,33 @@ Data pack 2026.10.24, every value read on 2026-10-24. 203 values from 76 sources
 | 71 | Washington Governor's Office for Regulatory Innovation and Assistance | [Individual Permit - NPDES (Permit Handbook)](https://www.oria.wa.gov/permithandbook/permitdetail/18) | 2017 | `water_permit_months` |
 | 72 | Wikipedia | [Colossus (supercomputer)](https://en.wikipedia.org/wiki/Colossus_(supercomputer)) | 2026 | `gpu_install_months_per_100mw` |
 | 73 | Wing Venture Capital | [How Much Does an NVIDIA NVL72 Cost?](https://www.wing.vc/content/how-much-does-an-nvidia-nvl72-cost) | 2026-08 | `compute_capex_per_mw__gb200`, `compute_capex_per_mw__gb300` |
-| 74 | Wood Mackenzie with American Clean Power | [Making the connection: Meeting the electric T&D supply chain challenge (executive summary)](https://www.powermag.com/wp-content/uploads/2026/01/making-the-connection-executive-summary-september-2025.pdf) | 2025-09 | `lead_lpt_months`, `stress_transformer_months` |
-| 75 | Wood Smith Henning & Berman (citing JLL) | [Built But Not Ready: Construction Claims in the Data Center Boom](https://www.wshblaw.com/experience-built-but-not-ready-construction-claims-in-the-data-center-boom) | 2026 | `lead_solar_bess_months`, `lead_chiller_months`, `lead_cdu_months`, `lead_crah_months` |
-| 76 | eCFR (U.S. Government Publishing Office) | [40 CFR 52.21 Prevention of significant deterioration of air quality](https://www.ecfr.gov/current/title-40/chapter-I/subchapter-C/part-52/subpart-A/section-52.21) | 2026 | `ctx_air_psd_major_source_other_tpy` |
-| 77 | Time to First Token (assumption) | Transmission and line works | 2026.10.24 | `transmission_build_months` |
-| 78 | Time to First Token (assumption) | Grading, fence and road | 2026.10.24 | `grading_civil_months` |
-| 79 | Time to First Token (assumption) | Mechanical time factor, air cooling | 2026.10.24 | `air_cooling_fitout_factor` |
-| 80 | Time to First Token (assumption) | Cluster bring-up and burn-in | 2026.10.24 | `cluster_bringup_months` |
-| 81 | Time to First Token (assumption) | Electrical fit-out time factor, 2N | 2026.10.24 | `redundancy_2n_electrical_time_factor` |
-| 82 | Time to First Token (assumption) | Duration scaling with load | 2026.10.24 | `construction_scale_exponent` |
-| 83 | Time to First Token (assumption) | GPU allocation delay | 2026.10.24 | `stress_gpu_months` |
-| 84 | Time to First Token (assumption) | Mitigation, transformer | 2026.10.24 | `risk_transformer_mitigation` |
-| 85 | Time to First Token (assumption) | Mitigation, interconnection | 2026.10.24 | `risk_interconnection_mitigation` |
-| 86 | Time to First Token (assumption) | Mitigation, permit | 2026.10.24 | `risk_permit_mitigation` |
-| 87 | Time to First Token (assumption) | Mitigation, turbine | 2026.10.24 | `risk_turbine_mitigation` |
-| 88 | Time to First Token (assumption) | Mitigation, utility | 2026.10.24 | `risk_utility_mitigation` |
-| 89 | Time to First Token (assumption) | Mitigation, gpu | 2026.10.24 | `risk_gpu_mitigation` |
-| 90 | Time to First Token (assumption) | Mitigation, labour | 2026.10.24 | `risk_labour_mitigation` |
-| 91 | Time to First Token (assumption) | PV capacity per kW of served load | 2026.10.24 | `solar_bess_pv_ratio` |
-| 92 | Time to First Token (assumption) | GPU racks per MW, Vera Rubin NVL144 | 2026.10.24 | `compute_capex_per_mw__rubin` |
+| 74 | Wood Mackenzie | [Supply shortages and an inflexible market give rise to high power transformer lead times](https://www.woodmac.com/news/opinion/supply-shortages-and-an-inflexible-market-give-rise-to-high-power-transformer-lead-times/) | 2024-04-02 | `stress_transformer_months` |
+| 75 | Wood Mackenzie with American Clean Power | [Making the connection: Meeting the electric T&D supply chain challenge (executive summary)](https://www.powermag.com/wp-content/uploads/2026/01/making-the-connection-executive-summary-september-2025.pdf) | 2025-09 | `lead_lpt_months` |
+| 76 | Wood Smith Henning & Berman (citing JLL) | [Built But Not Ready: Construction Claims in the Data Center Boom](https://www.wshblaw.com/experience-built-but-not-ready-construction-claims-in-the-data-center-boom) | 2026 | `lead_solar_bess_months`, `lead_chiller_months`, `lead_cdu_months`, `lead_crah_months` |
+| 77 | eCFR (U.S. Government Publishing Office) | [40 CFR 52.21 Prevention of significant deterioration of air quality](https://www.ecfr.gov/current/title-40/chapter-I/subchapter-C/part-52/subpart-A/section-52.21) | 2026 | `ctx_air_psd_major_source_other_tpy` |
+| 78 | Time to First Token (assumption) | Gas supply: pipeline lateral and supply agreement | 2026.10.24 | `gas_supply_months` |
+| 79 | Time to First Token (assumption) | Accelerator order to delivery | 2026.10.24 | `lead_accelerator_months` |
+| 80 | Time to First Token (assumption) | Transmission and line works | 2026.10.24 | `transmission_build_months` |
+| 81 | Time to First Token (assumption) | Grading, fence and road | 2026.10.24 | `grading_civil_months` |
+| 82 | Time to First Token (assumption) | Mechanical time factor, air cooling | 2026.10.24 | `air_cooling_fitout_factor` |
+| 83 | Time to First Token (assumption) | Cluster bring-up and burn-in | 2026.10.24 | `cluster_bringup_months` |
+| 84 | Time to First Token (assumption) | Electrical fit-out time factor, 2N | 2026.10.24 | `redundancy_2n_electrical_time_factor` |
+| 85 | Time to First Token (assumption) | Duration scaling with load | 2026.10.24 | `construction_scale_exponent` |
+| 86 | Time to First Token (assumption) | GPU allocation delay | 2026.10.24 | `stress_gpu_months` |
+| 87 | Time to First Token (assumption) | Mitigation, transformer | 2026.10.24 | `risk_transformer_mitigation` |
+| 88 | Time to First Token (assumption) | Mitigation, interconnection | 2026.10.24 | `risk_interconnection_mitigation` |
+| 89 | Time to First Token (assumption) | Mitigation, permit | 2026.10.24 | `risk_permit_mitigation` |
+| 90 | Time to First Token (assumption) | Mitigation, turbine | 2026.10.24 | `risk_turbine_mitigation` |
+| 91 | Time to First Token (assumption) | Mitigation, utility | 2026.10.24 | `risk_utility_mitigation` |
+| 92 | Time to First Token (assumption) | Mitigation, gpu | 2026.10.24 | `risk_gpu_mitigation` |
+| 93 | Time to First Token (assumption) | Mitigation, labour | 2026.10.24 | `risk_labour_mitigation` |
+| 94 | Time to First Token (assumption) | PV capacity per kW of served load | 2026.10.24 | `solar_bess_pv_ratio` |
+| 95 | Time to First Token (assumption) | GPU racks per MW, Vera Rubin NVL144 | 2026.10.24 | `compute_capex_per_mw__rubin` |
 
 ## Assumptions
 
+- `gas_supply_months`: 18 months. No public figure found for a data-center-scale lateral and firm supply agreement; 18 months (12 to 30) is our assumption. It gates the onsite plant's connection.
+- `lead_accelerator_months`: 9 months. No public allocation lead time for NVL72-class racks; 9 months (6 to 12) is our assumption, released from the basis of design.
 - `transmission_build_months`: 0 months. Utility line works are counted inside the energization wait above rather than as a separate task; a dedicated 345 kV line would add years (Grid Strategies: 6 to 10 years for large builds).
 - `grading_civil_months`: 3 months. No public duration found for the civil package alone; 3 months (2 to 4) is our assumption, inside the industry guide's construction phase.
 - `air_cooling_fitout_factor`: 1.0 ratio. No evidence that air-cooled fit-out is faster or slower; factor 1.

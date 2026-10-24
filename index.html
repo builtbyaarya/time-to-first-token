@@ -70,7 +70,7 @@
           <div class="seg" id="in-redund" role="group" aria-label="Redundancy">
             <button type="button" data-v="n1" aria-pressed="true">N+1</button>
             <button type="button" data-v="2n" aria-pressed="false">2N</button>
-            <button type="button" data-v="tier4" aria-pressed="false">Tier IV</button>
+            <button type="button" data-v="tier4" aria-pressed="false">2N, Tier IV cert.</button>
           </div>
         </div>
         <div class="field">
@@ -91,6 +91,7 @@
             <label for="in-density">Rack density, kW</label>
             <input id="in-density" type="number" min="10" max="250" step="5" value="120" inputmode="numeric">
           </div>
+          <div class="hint" id="in-density-hint" style="grid-column:1/-1; margin-top:-8px; margin-bottom:12px"></div>
         </div>
         <div class="field">
           <label for="in-target">Target go-live</label>
@@ -145,8 +146,8 @@
           <div class="kpi big"><div class="v" id="k-ttft">0 mo</div><div class="l">Time to first token, from project start</div></div>
           <div class="kpi"><div class="v" id="k-live">2028</div><div class="l">First token</div></div>
           <div class="kpi"><div class="v" id="k-target">0 mo</div><div class="l">Versus target</div></div>
-          <div class="kpi"><div class="v" id="k-capex">$0</div><div class="l">Capex, facility <span class="tag range">range</span></div></div>
-          <div class="kpi"><div class="v" id="k-opex">$0</div><div class="l">Opex per year <span class="tag range">range</span></div></div>
+          <div class="kpi"><div class="v" id="k-capex">$0</div><div class="l">Capex, facility and power <span class="tag range">range</span></div></div>
+          <div class="kpi"><div class="v" id="k-opex">$0</div><div class="l">Opex per year, steady state <span class="tag range">range</span></div></div>
           <div class="kpi"><div class="v" id="k-pue">1.0</div><div class="l">Design PUE</div></div>
           <div class="kpi"><div class="v" id="k-water">0</div><div class="l">Water, million gal per year</div></div>
         </div>

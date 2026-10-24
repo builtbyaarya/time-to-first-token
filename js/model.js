@@ -61,7 +61,8 @@ export function plan(pack, inp) {
   const bigGen = onsite && (onsiteKind === "gas_turbine" || onsiteKind === "recip");
   // scaling: durations of the building work grow with size; published builds are the anchors (see pack: construction_scale_exponent)
   const sizeScale = Math.pow(mw / 100, P.v("construction_scale_exponent"));
-  const phaseFactor = lev.phase ? P.v("lever_first_phase_share") : 1;
+  // first tranche of racks: the phase lever, or (hybrid) the share the onsite plant can carry
+  const phaseShare = lev.phase ? P.v("lever_first_phase_share") : (inp.power === "hybrid" ? P.v("hybrid_onsite_share") : 1);
 
   // --- durations in months, from the pack (scoped by state or ISO where the pack has it) ---
   const d = {
@@ -84,7 +85,10 @@ export function plan(pack, inp) {
     electrical: P.v("electrical_fitout_months") * sizeScale,
     mechanical: P.v("mechanical_fitout_months") * sizeScale * (inp.cool === "air" ? P.v("air_cooling_fitout_factor") : 1),
     whitespace: P.v("whitespace_fitout_months") * sizeScale,
-    compute: P.v("gpu_install_months_per_100mw") * sizeScale * phaseFactor,
+    compute: P.v("gpu_install_months_per_100mw") * sizeScale * phaseShare,
+    compute2: P.v("gpu_install_months_per_100mw") * sizeScale * (1 - phaseShare),
+    gpuLead: P.v("lead_accelerator_months"),
+    gasSupply: bigGen ? P.v("gas_supply_months") : 0,
     bringup: P.v("cluster_bringup_months"),
     cx12: P.v("cx_l1_l2_months"),
     cx34: P.v("cx_l3_l4_months") * sizeScale,
@@ -104,7 +108,7 @@ export function plan(pack, inp) {
   if (st) {
     const slip = P.v(`stress_${st}_months`);
     ({ transformer: () => S.lpt = slip, interconnection: () => S.study = slip, permit: () => S.zoning = slip,
-       turbine: () => S.genLead = slip, gpu: () => S.compute = slip, utility: () => S.utilityWait = slip,
+       turbine: () => S.genLead = slip, gpu: () => S.gpuLead = slip, utility: () => S.utilityWait = slip,
        labour: () => S.electrical = slip })[st]?.();
   }
   const dur = (k) => d[k] + (S[k] || 0);
@@ -113,39 +117,45 @@ export function plan(pack, inp) {
   const T = [];
   const add = (id, label, stage, months, pred = [], opts = {}) => T.push({ id, label, stage, months: Math.max(0, months), pred, ...opts });
   add("survey", "Survey, geotech and planning", "land", dur("survey"));
-  add("design", "Design and engineering", "shell", dur("design"), ["survey"]);
+  add("design", "Design and engineering", "shell", dur("design"), [["survey", 0.5]]);
   add("zoning", "Zoning and site plan approval", "permits", dur("zoning"), [], { gate: true });
   add("siteplan", "Building permit", "permits", dur("siteplan"), ["zoning", "design"], { gate: true });
   add("air", bigGen ? "Air permit, major source (PSD and Title V)" : "Air permit, minor source (standby generators)", "permits", dur("air"), ["design"], { gate: true });
   if (d.water) add("water", "Cooling-water discharge permit", "permits", dur("water"), ["design"], { gate: true });
-  add("study", `Large-load interconnection study, ${iso}`, "power", dur("study"));
+  add("study", iso === "PJM" ? "Utility load interconnection study" : `Large-load interconnection study, ${iso}`, "power", dur("study"));
   const lptPred = lev.lptEarly ? [] : ["study"];
-  add("lpt", lev.lptEarly ? "Large power transformers, ordered at risk" : "Large power transformers", "power", dur("lpt"), lptPred, { lead: true });
+  add("lpt", lev.lptEarly ? "Large power transformers, slots reserved at start" : "Large power transformers", "power", dur("lpt"), lptPred, { lead: true });
   if (d.transmission) add("transmission", "Transmission works", "power", dur("transmission"), ["study"]);
   add("substation", "Substation civil, structures and switchyard", "power", dur("substation"), d.transmission ? ["transmission"] : ["study"]);
   // energization happens when the substation and the transformers are both done, and never before the utility's own wait
-  add("utility", "Utility energization (wait for the utility)", "power", 0, ["substation", "lpt"], { wait: true });
+  add("utility", "Utility energization, wait", "power", 0, ["substation", "lpt"], { wait: true });
   if (onsite) {
     add("genlead", `${genLabel(onsiteKind)}, order and lead time`, "power", dur("genLead"), [], { lead: true });
-    add("geninst", `${genLabel(onsiteKind)}, install and connect`, "power", dur("genInstall"), ["genlead", "foundations", "air"]);
+    if (d.gasSupply) add("gas", "Gas supply: lateral and supply agreement", "power", dur("gasSupply"), [["design", 0.5]]);
+    add("geninst", `${genLabel(onsiteKind)}, install and connect`, "power", dur("genInstall"), ["genlead", "foundations", "air", ...(d.gasSupply ? ["gas"] : [])]);
   }
   add("grading", "Grading, fence and road", "land", dur("grading"), ["survey", "zoning"]);
   add("foundations", "Foundations", "shell", dur("foundations"), ["grading", "siteplan"]);
   add("shell", "Steel, roof and walls", "shell", dur("shell"), ["foundations"]);
-  add("switchgear", "Switchgear and UPS, order and lead time", "electrical", Math.max(dur("switchgear"), dur("ups")), ["design"], { lead: true });
-  add("genset", "Standby generators, order and lead time", "electrical", dur("genset"), ["design"], { lead: true });
-  add("chiller", inp.cool === "air" ? "CRAH units, order and lead time" : "Chillers or dry coolers, order and lead time", "cooling", dur("chiller"), ["design"], { lead: true });
-  if (d.cdu) add("cdu", "CDUs and loop parts, order and lead time", "cooling", dur("cdu"), ["design"], { lead: true });
+  // long-lead orders are released from the basis of design, half way through the design package
+  add("switchgear", "Switchgear and UPS, order and lead time", "electrical", Math.max(dur("switchgear"), dur("ups")), [["design", 0.5]], { lead: true });
+  add("genset", "Standby generators, order and lead time", "electrical", dur("genset"), [["design", 0.5]], { lead: true });
+  add("chiller", inp.cool === "air" ? "CRAH units, order and lead time" : "Chillers or dry coolers, order and lead time", "cooling", dur("chiller"), [["design", 0.5]], { lead: true });
+  if (d.cdu) add("cdu", "CDUs and loop parts, order and lead time", "cooling", dur("cdu"), [["design", 0.5]], { lead: true });
+  add("gpulead", "Accelerator order and allocation", "compute", dur("gpuLead"), [["design", 0.5]], { lead: true });
   // fit-out starts once the shell is weather-tight (about two thirds through), white space once the fit-outs are half done
-  add("electrical", "Electrical fit-out: switchgear, UPS, generators, busway", "electrical", dur("electrical"), [["shell", 0.67], "switchgear", "genset", "air"]);
+  add("electrical", "Electrical fit-out: switchgear, UPS, busway", "electrical", dur("electrical"), [["shell", 0.67], "switchgear"]);
   add("mechanical", inp.cool === "air" ? "Mechanical fit-out: chillers, CRAH" : "Mechanical fit-out: coolers, CDUs, liquid loop", "cooling", dur("mechanical"), [["shell", 0.67], "chiller", ...(d.cdu ? ["cdu"] : [])]);
-  add("whitespace", "White space: rows, containment, racks", "whitespace", dur("whitespace"), [["electrical", 0.5], ["mechanical", 0.5]]);
-  add("cx12", "Cx L1 to L2: factory and site acceptance", "commissioning", dur("cx12"), [["electrical", 0.6], ["mechanical", 0.6]]);
-  add("cx34", "Cx L3 to L4: start-up and functional tests", "commissioning", dur("cx34"), ["cx12", "whitespace"]);
+  add("whitespace", "White space: rows, containment, power and liquid drops", "whitespace", dur("whitespace"), [["electrical", 0.5], ["mechanical", 0.5]]);
+  add("cx12", "Cx L1 to L2: factory witness and receipt", "commissioning", dur("cx12"), [["switchgear", 0.8], ["chiller", 0.8]]);
+  // functional tests need the standby generators set and permitted, so gensets and the air permit gate L3 to L4
+  add("cx34", "Cx L3 to L4: start-up and functional tests", "commissioning", dur("cx34"), ["cx12", "whitespace", "genset", "air"]);
   const powerForIst = onsite ? ["geninst"] : ["utility"];
   add("cx5", "Cx L5: integrated systems test", "commissioning", dur("cx5"), ["cx34", ...powerForIst, ...(d.water ? ["water"] : [])]);
-  add("compute", `GPU racks installed, ${lev.phase ? "first phase" : "all"}`, "compute", dur("compute"), ["cx5"]);
+  const firstLabel = phaseShare < 1 ? `GPU racks installed, first ${Math.round(phaseShare * 100)}%` : "GPU racks installed";
+  add("compute", firstLabel, "compute", dur("compute"), ["cx5", "gpulead"]);
   add("bringup", "Cluster bring-up and burn-in", "live", dur("bringup"), ["compute"]);
+  if (phaseShare < 1) add("compute2", `GPU racks installed, remaining ${Math.round((1 - phaseShare) * 100)}%`, "compute", dur("compute2"), ["compute", ...(onsite && inp.power === "hybrid" ? ["utility"] : [])], { after: true });
 
   // --- CPM forward pass ---
   const byId = new Map(T.map(t => [t.id, t]));
@@ -163,22 +173,24 @@ export function plan(pack, inp) {
   // backward pass against first token (the utility energization after first token has float by definition)
   const lf = {}, ls = {};
   for (const tid of [...order].reverse()) { const t = byId.get(tid);
-    const succ = T.filter(x => x.pred.some(pr => (Array.isArray(pr) ? pr[0] : pr) === t.id));
+    const succ = T.filter(x => !x.after && x.pred.some(pr => (Array.isArray(pr) ? pr[0] : pr) === t.id));
     // latest start so that no successor is late: a successor that starts when this task is frac done gives ls = succ.ls - frac*months
-    ls[t.id] = succ.length ? Math.min(...succ.map(x => { const pr = x.pred.find(pr => (Array.isArray(pr) ? pr[0] : pr) === t.id); const frac = Array.isArray(pr) ? pr[1] : 1; return ls[x.id] - frac * t.months; })) : end - t.months;
+    ls[t.id] = succ.length ? Math.min(...succ.map(x => { const pr = x.pred.find(pr => (Array.isArray(pr) ? pr[0] : pr) === t.id); const frac = Array.isArray(pr) ? pr[1] : 1; return ls[x.id] - frac * t.months; })) : (t.after || ef[t.id] > end + 1e-9 ? ef[t.id] : end) - t.months;
     lf[t.id] = ls[t.id] + t.months;
   }
-  const tasks = T.map(t => ({ ...t, es: es[t.id], ef: ef[t.id], float: ls[t.id] - es[t.id], critical: Math.abs(ls[t.id] - es[t.id]) < 0.05 && t.months > 0, slip: S[slipKey(t.id)] || 0 }))
+  // ancestors of first token: only those can be critical
+  const anc = new Set(); const walk = (id) => { for (const pr of byId.get(id).pred) { const p = Array.isArray(pr) ? pr[0] : pr; if (!anc.has(p)) { anc.add(p); walk(p); } } }; walk("bringup"); anc.add("bringup");
+  const tasks = T.map(t => ({ ...t, es: es[t.id], ef: ef[t.id], float: Math.max(0, ls[t.id] - es[t.id]), beyond: ef[t.id] > end + 1e-9, critical: anc.has(t.id) && !t.after && Math.abs(ls[t.id] - es[t.id]) < 0.05 && t.months > 0, slip: S[slipKey(t.id)] || 0 }))
     .sort((a, b) => a.es - b.es || T.indexOf(byId.get(a.id)) - T.indexOf(byId.get(b.id)));
 
   // --- key dates ---
   const firstToken = ef.bringup;
-  const fullPower = onsite ? Math.max(ef.utility, ef.bringup) : ef.bringup;
+  const fullPower = Math.max(ef.bringup, onsite ? ef.utility : 0, ef.compute2 || 0);
   const stageEnd = {}; for (const s of STAGES) stageEnd[s.id] = Math.max(0, ...tasks.filter(t => t.stage === s.id).map(t => t.ef));
   stageEnd.power = onsite ? ef.geninst : ef.utility;
   stageEnd.live = firstToken;
   const stageStart = {}; for (const s of STAGES) stageStart[s.id] = Math.min(end, ...tasks.filter(t => t.stage === s.id).map(t => t.es));
-  stageStart.live = ef.compute;
+  stageStart.live = ef.compute; stageEnd.compute = ef.compute;
   const heldStage = st ? stageOfStress(st, onsite) : null;
   const taskTimes = {}; for (const t of tasks) taskTimes[t.id] = [t.es, t.ef];
 
@@ -188,11 +200,11 @@ export function plan(pack, inp) {
   const racks = Math.ceil(mw * 1000 / inp.density);
   const airWarning = inp.cool === "air" && inp.density > P.v("air_cooling_max_kw_per_rack") ? `Air cooling is impractical above ${P.v("air_cooling_max_kw_per_rack")} kW per rack (Uptime); ${inp.density} kW racks need liquid cooling.` : "";
   const targetMonths = monthsBetween(inp.start, inp.target);
-  return { tasks, taskTimes, end, firstToken, fullPower, stageEnd, stageStart, heldStage, iso, d, costs, energy, racks, airWarning,
+  return { tasks, taskTimes, end, firstToken, fullPower, stageEnd, stageStart, heldStage, iso, d, costs, energy, racks, airWarning, phaseShare,
     targetMonths, vsTarget: targetMonths - firstToken, liveDate: addMonths(inp.start, firstToken), fullDate: addMonths(inp.start, fullPower) };
 }
 
-function slipKey(id) { return { lpt: "lpt", study: "study", zoning: "zoning", genlead: "genLead", compute: "compute", utility: "utilityWait", shell: "shell", electrical: "electrical" }[id] || id; }
+function slipKey(id) { return { lpt: "lpt", study: "study", zoning: "zoning", genlead: "genLead", gpulead: "gpuLead", utility: "utilityWait", electrical: "electrical" }[id] || id; }
 function stageOfStress(st, onsite) { return { transformer: "power", interconnection: "power", permit: "permits", turbine: "power", gpu: "compute", utility: onsite ? "live" : "power", labour: "electrical" }[st]; }
 export function genLabel(k) { return { gas_turbine: "Gas turbines", recip: "Reciprocating engines", fuel_cell: "Fuel cells", solar_bess: "Solar plus batteries" }[k]; }
 
@@ -240,13 +252,16 @@ export function energyModel(pack, inp) {
   const waterL = mw * util * 8760 * 1000 * wue; // litres per year, from WUE (L per kWh of IT)
   const waterMgal = waterL / 3.78541 / 1e6;
   const staffLo = P.lo("opex_staff_maint_per_mw_year") * mw, staffHi = P.hi("opex_staff_maint_per_mw_year") * mw;
-  const fuel = inp.power === "grid" ? 0 : onsiteFuel(pack, inp, mwhYear);
-  return { pue, wue, util, priceC, mwhYear, elecM, waterMgal, staff: [staffLo, staffHi], fuel,
-    opex: [elecM * (inp.power === "bridge" ? 0 : 1) + staffLo + fuel, elecM * (inp.power === "bridge" ? 0 : 1) + staffHi + fuel] };
+  // steady state: hybrid keeps its onsite share on gas for good; bridge goes back to the grid once energized (the plant stays as backup)
+  const onsiteShare = inp.power === "hybrid" ? P.v("hybrid_onsite_share") : 0;
+  const elecGrid = elecM * (1 - onsiteShare);
+  const fuel = inp.power === "hybrid" ? onsiteFuel(pack, inp, mwhYear, onsiteShare) : 0;
+  const bridgeFuelYear = inp.power === "bridge" ? onsiteFuel(pack, inp, mwhYear, 1) : 0;
+  return { pue, wue, util, priceC, mwhYear, elecM, elecGrid, onsiteShare, waterMgal, staff: [staffLo, staffHi], fuel, bridgeFuelYear,
+    opex: [elecGrid + staffLo + fuel, elecGrid + staffHi + fuel] };
 }
-function onsiteFuel(P, inp, mwhYear) {
+function onsiteFuel(P, inp, mwhYear, share) {
   if (inp.bridge === "solar_bess") return 0;
-  const share = inp.power === "bridge" ? 1 : P.v("hybrid_onsite_share");
   const hr = P.v(`heat_rate_${inp.bridge}_btu_per_kwh`); const gas = P.v("gas_price_usd_per_mmbtu");
   return mwhYear * share * 1000 * hr / 1e6 * gas / 1e6;
 }
@@ -261,15 +276,15 @@ export function levers(pack, inp, base) {
     let r; try { r = plan(pack, alt); } catch (e) { return; }
     out.push({ label, desc, months: base.firstToken - r.firstToken, cost: mid(base.costs.total) - mid(r.costs.total), opex: mid(base.energy.opex) - mid(r.energy.opex), change });
   };
-  tryIt(inp.levers?.lptEarly ? "Order transformers after the study" : "Order transformers at project start", "Place the large transformer order before the interconnection study ends, at risk of a spec change.", { lever: "lptEarly" });
+  tryIt(inp.levers?.lptEarly ? "Reserve transformer slots after the study" : "Reserve transformer slots at project start", "Customer-side units, or a funded reservation of the utility's; at risk of a spec change after the study.", { lever: "lptEarly" });
   if (inp.power === "grid") tryIt("Add onsite bridge power", `Run the first phase on ${genLabel(inp.bridge).toLowerCase()} while the grid connection catches up.`, { inp: { power: "bridge" } });
   else tryIt("Grid only, no onsite generation", "Drop the onsite plant and wait for the utility.", { inp: { power: "grid" } });
-  if (inp.power === "grid") tryIt("Hybrid: part onsite, part grid", "A smaller onsite plant covers the first racks; the grid serves the rest.", { inp: { power: "hybrid" } });
+  if (inp.power === "grid") tryIt("Hybrid: part onsite, part grid", "A smaller onsite plant carries the first tranche of racks for good; the grid serves the rest once energized.", { inp: { power: "hybrid" } });
   tryIt(inp.levers?.phase ? "Install all racks before first token" : "First token on a first phase of racks", "Serve the first token from a first tranche of racks, then keep installing.", { lever: "phase" });
   if (inp.cool === "liquid_tower") tryIt("Dry coolers instead of towers", "No cooling-water permit and far less water, at a PUE cost.", { inp: { cool: "liquid" } });
   if (inp.cool === "liquid") tryIt("Cooling towers instead of dry coolers", "Lower PUE, but a water permit and a water bill.", { inp: { cool: "liquid_tower" } });
   if (inp.redund !== "n1") tryIt("N+1 instead of full redundancy", "Most AI training halls accept N+1.", { inp: { redund: "n1" } });
-  else tryIt("2N redundancy", "Concurrently maintainable power paths.", { inp: { redund: "2n" } });
+  else tryIt("2N redundancy", "A second full power path, fault tolerant.", { inp: { redund: "2n" } });
   if (inp.power !== "grid" && inp.bridge !== "recip") tryIt("Reciprocating engines instead", "Shorter lead time than turbines, in smaller units.", { inp: { bridge: "recip" } });
   if (inp.power !== "grid" && inp.bridge !== "solar_bess") tryIt("Solar plus batteries instead", "No air permit fight, but a much larger site and limited hours.", { inp: { bridge: "solar_bess" } });
   // fastest state alternative
@@ -301,10 +316,10 @@ export function risks(pack, inp, base) {
     const like = pack.get(`risk_${s.id}_likelihood`), slip = pack.get(`stress_${s.id}_months`);
     if (!like || !slip) continue;
     let r; try { r = plan(pack, { ...inp, stress: s.id }); } catch (e) { continue; }
-    const impact = r.firstToken - base.firstToken;
-    out.push({ ...s, likelihood: like.value, likelihoodLabel: like.text || `${Math.round(like.value * 100)}%`, slipMonths: slip.value, impact, mitigation: pack.get(`risk_${s.id}_mitigation`)?.text || "" });
+    const impact = r.firstToken - base.firstToken, impactFull = r.fullPower - base.fullPower;
+    out.push({ ...s, likelihood: like.value, likelihoodLabel: like.text || `${Math.round(like.value * 100)}%`, slipMonths: slip.value, impact, impactFull, impactMax: Math.max(impact, impactFull), mitigation: pack.get(`risk_${s.id}_mitigation`)?.text || "" });
   }
-  return out.sort((a, b) => b.likelihood * b.impact - a.likelihood * a.impact);
+  return out.sort((a, b) => b.likelihood * b.impactMax - a.likelihood * a.impactMax);
 }
 
 // ---------------------------------------------------------------------------------------------------------
@@ -321,10 +336,11 @@ export function exportRows(pack, inp, r) {
   rows.push(["result", "full_power_date", r.fullDate, "", "", "month", "derived", "", ""]);
   rows.push(["result", "capex_total_musd", mid(r.costs.total).toFixed(0), r.costs.total[0].toFixed(0), r.costs.total[1].toFixed(0), "USD million", "derived", "", ""]);
   rows.push(["result", "capex_facility_musd", mid(r.costs.facility).toFixed(0), r.costs.facility[0].toFixed(0), r.costs.facility[1].toFixed(0), "USD million", "derived", "", ""]);
-  rows.push(["result", "opex_musd_per_year", mid(r.energy.opex).toFixed(0), r.energy.opex[0].toFixed(0), r.energy.opex[1].toFixed(0), "USD million per year", "derived", "", ""]);
+  rows.push(["result", "opex_musd_per_year", mid(r.energy.opex).toFixed(0), r.energy.opex[0].toFixed(0), r.energy.opex[1].toFixed(0), "USD million per year, steady state", "derived", "", ""]);
+  if (r.energy.bridgeFuelYear) rows.push(["result", "bridge_fuel_musd_first_year", r.energy.bridgeFuelYear.toFixed(0), "", "", "USD million, while on bridge power", "derived", "", ""]);
   rows.push(["result", "pue", r.energy.pue, "", "", "", "sourced", "", ""]);
   rows.push(["result", "water_mgal_per_year", r.energy.waterMgal.toFixed(1), "", "", "million US gallons per year", "derived", "", ""]);
   for (const t of r.tasks) rows.push(["task", t.id, t.label, t.es.toFixed(1), t.ef.toFixed(1), "months from start", t.critical ? "critical" : "float", "", ""]);
-  for (const v of pack.json.values) rows.push(["assumption", v.id, v.value ?? v.text ?? "", v.low ?? "", v.high ?? "", v.unit || "", v.kind, v.publisher, v.source_url]);
+  for (const v of pack.json.values) rows.push(["pack:" + v.kind, v.id, v.value ?? v.text ?? "", v.low ?? "", v.high ?? "", v.unit || "", v.kind, v.publisher, v.source_url]);
   return rows;
 }

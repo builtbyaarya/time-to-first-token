@@ -313,7 +313,8 @@ export class Site {
     this.cont.forEach((c, i) => c.material.opacity = 0.28 * sub(Wsp, 0.4 + i * 0.1, 0.7 + i * 0.1));
     const nEmpty = Math.round(sub(Wsp, 0.5, 1.0) * this.rackN);
     // compute: lit racks replace empty ones row by row
-    const nLit = Math.round(ease(T("compute")) * this.rackN * (this.config.phaseShare || 1));
+    const ps = this.config.phaseShare || 1;
+    const nLit = Math.round(ease(T("compute")) * this.rackN * ps + (ps < 1 ? ease(T("compute2")) * this.rackN * (1 - ps) : 0));
     let ce = 0, cl = 0;
     for (let i = 0; i < this.rackN; i++) {
       const [x, y, z] = this.rackPts[i];
@@ -374,9 +375,9 @@ export class Site {
   _loop() {
     const tick = (t) => {
       requestAnimationFrame(tick);
-      const dt = Math.min(0.05, (t - (this.lastT || t)) / 1000); this.lastT = t;
+      const rawDt = (t - (this.lastT || t)) / 1000; const dt = Math.min(0.05, rawDt); this.lastT = t;
       // section cut eases in and out
-      if (Math.abs(this.cut - this.cutTarget) > 0.001) { this.cut += (this.cutTarget - this.cut) * (this.reduced ? 1 : Math.min(1, dt * 6)); if (Math.abs(this.cut - this.cutTarget) < 0.002) this.cut = this.cutTarget; this.clip.constant = 60 - this.cut * (60 - 0.3); this.needs = true; }
+      if (Math.abs(this.cut - this.cutTarget) > 0.001) { const step = this.reduced ? 1 : Math.max(0.08, Math.min(1, rawDt * 4)); this.cut += (this.cutTarget - this.cut) * step; if (Math.abs(this.cut - this.cutTarget) < 0.01) this.cut = this.cutTarget; this.clip.constant = 60 - this.cut * (60 - 0.3); this.needs = true; }
       if (this.drift && !this.userMoved && !this.reduced) { this.orbit.theta += dt * 0.025; this._applyOrbit(); }
       if (this.dirty) this.update();
       const animating = this.live > 0.1 || this.ist > 0;

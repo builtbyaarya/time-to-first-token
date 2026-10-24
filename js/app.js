@@ -16,7 +16,8 @@ async function boot() {
   if (!res.ok) throw new Error("data pack missing");
   pack = new Pack(await res.json());
   $("#tb-pack").textContent = `v${pack.json.version}`;
-  $("#pack-meta").textContent = `Data pack ${pack.json.version}, ${pack.json.values.length} sourced values, accessed ${pack.json.accessed}. Each value carries its source, publisher and the date it was read. Values marked assumption are ours.`;
+  const kinds = pack.json.values.reduce((a, v) => (a[v.kind] = (a[v.kind] || 0) + 1, a), {});
+  $("#pack-meta").textContent = `Data pack ${pack.json.version}, ${pack.json.values.length} values (${kinds.sourced || 0} sourced, ${kinds.derived || 0} derived from sourced values, ${kinds.assumption || 0} assumptions, ${kinds.context || 0} context), accessed ${pack.json.accessed}. Each value carries its source, publisher and the date it was read. Values marked assumption are ours.`;
   inp = readUrl({ ...DEFAULT_INPUTS, ...(pack.json.defaults || {}) });
   fillInputs();
   await startScene();
@@ -72,7 +73,7 @@ function recompute() {
   R.levers = levers(pack, inp, R); R.risks = risks(pack, inp, R);
   writeUrl();
   renderHints(); renderSummary(); renderGantt(); renderLevers(); renderCosts(); renderRisks(); renderStress(); renderRail();
-  if (site) site.setPlan(R, { ...inp, phaseShare: inp.levers?.phase ? pack.v("lever_first_phase_share") : 1 });
+  if (site) site.setPlan(R, { ...inp, phaseShare: R.phaseShare });
   setTime(Math.min(curTime(), R.end), true);
   $("#tb-status").textContent = R.vsTarget >= 0 ? "on target" : "late";
   if (pack.missing.size && debug) console.warn("missing pack ids", [...pack.missing]);
@@ -81,10 +82,10 @@ function recompute() {
 function renderHints() {
   const iso = pack.get(`iso__${inp.state}`); const s = pack.json.states.find(x => x.code === inp.state);
   $("#in-iso-hint").textContent = iso ? `${iso.text}. ${s?.note || ""}`.trim() : "";
-  $("#in-power-hint").textContent = { grid: "Wait for the utility; nothing to permit but the standby generators.", bridge: "Onsite plant serves the first racks; the grid connection follows.", hybrid: `Onsite plant covers ${Math.round(pack.v("hybrid_onsite_share") * 100)}% of the load; the grid serves the rest.` }[inp.power];
+  $("#in-power-hint").textContent = { grid: "Wait for the utility; the only air permit is the minor-source one for the standby generators.", bridge: "Onsite plant carries the site until the utility energizes it, then stays as backup.", hybrid: `Onsite plant carries ${Math.round(pack.v("hybrid_onsite_share") * 100)}% of the load for good, so first token comes from that tranche of racks; the grid serves the rest once energized.` }[inp.power];
   $("#f-bridge").style.display = inp.power === "grid" ? "none" : "";
   $("#in-cool-hint").textContent = (R && R.airWarning ? R.airWarning + " " : "") + { liquid: `PUE ${pack.v("pue__liquid")}, WUE ${pack.v("wue__liquid")} L/kWh. Closed loop, no cooling-water permit.`, liquid_tower: `PUE ${pack.v("pue__liquid_tower")}, WUE ${pack.v("wue__liquid_tower")} L/kWh. Needs a water permit.`, air: `PUE ${pack.v("pue__air")}. Air cooling tops out near ${pack.v("air_cooling_max_kw_per_rack")} kW per rack.` }[inp.cool];
-  const g = pack.get(`gpu_${inp.gpu}`); $("#in-target-hint").textContent = g ? `${g.text}` : "";
+  const g = pack.get(`gpu_${inp.gpu}`); $("#in-density-hint").textContent = g ? g.text : ""; $("#in-target-hint").textContent = "Versus target is the gap between this month and first token.";
 }
 
 function renderSummary() {
@@ -121,7 +122,7 @@ function renderGantt() {
     s += `<rect x="${x0}" y="${y + 4}" width="${Math.max(2, (t.slip ? xs : x1) - x0)}" height="13" rx="3" fill="${t.critical ? "#16181C" : "#C9CDD6"}"/>`;
     if (t.slip) s += `<rect x="${xs}" y="${y + 4}" width="${Math.max(2, x1 - xs)}" height="13" rx="3" fill="#B4540A"/>`;
     if (t.lead) s += `<rect x="${x0}" y="${y + 4}" width="${Math.max(2, (t.slip ? xs : x1) - x0)}" height="13" rx="3" fill="url(#lead)" opacity=".5"/>`;
-    s += `<text x="${x1 + 5}" y="${y + 14}" font-size="11" fill="#7A7D85">${t.months.toFixed(0)}</text>`;
+    s += `<text x="${x1 + 5}" y="${y + 14}" font-size="11" fill="#7A7D85">${t.wait ? "wait" : t.months.toFixed(0)}${t.beyond ? ", after first token" : ""}</text>`;
   });
   s += `<line x1="${x(R.targetMonths)}" y1="${top - 8}" x2="${x(R.targetMonths)}" y2="${H - 10}" stroke="#2D5BFF" stroke-width="1.5" stroke-dasharray="3 3"/>`;
   s += `<line x1="${x(R.firstToken)}" y1="${top - 8}" x2="${x(R.firstToken)}" y2="${H - 10}" stroke="#16181C" stroke-width="1"/>`;
@@ -152,12 +153,13 @@ function renderCosts() {
   s += `<tr><td>GPU racks, ${esc(R.costs.gpu?.text || inp.gpu)} <span class="tag range">range</span></td><td class="r">${fmtM(R.costs.compute[0])}</td><td class="r">${fmtM(R.costs.compute[1])}</td></tr>`;
   s += `<tr><td><b>All-in capex</b></td><td class="r"><b>${fmtM(R.costs.total[0])}</b></td><td class="r"><b>${fmtM(R.costs.total[1])}</b></td></tr>`;
   const e = R.energy;
-  s += `<tr><td>Electricity per year, PUE ${e.pue.toFixed(2)}, ${e.priceC.toFixed(2)} c/kWh${inp.power === "bridge" ? " (replaced by fuel)" : ""}</td><td class="r" colspan="2">${inp.power === "bridge" ? "see fuel" : fmtM(e.elecM)}</td></tr>`;
-  if (e.fuel) s += `<tr><td>Gas fuel per year <span class="tag range">range</span></td><td class="r" colspan="2">${fmtM(e.fuel)}</td></tr>`;
+  s += `<tr><td>Electricity per year${e.onsiteShare ? `, grid share ${Math.round((1 - e.onsiteShare) * 100)}%` : ""}, PUE ${e.pue.toFixed(2)}, ${e.priceC.toFixed(2)} c/kWh</td><td class="r" colspan="2">${fmtM(e.elecGrid)}</td></tr>`;
+  if (e.fuel) s += `<tr><td>Gas for the onsite share, Henry Hub price, no delivery adder <span class="tag assump">assumption</span></td><td class="r" colspan="2">${fmtM(e.fuel)}</td></tr>`;
+  if (e.bridgeFuelYear) s += `<tr><td>Gas while on bridge power, per year until energization, Henry Hub price <span class="tag assump">assumption</span></td><td class="r" colspan="2">${fmtM(e.bridgeFuelYear)}</td></tr>`;
   s += `<tr><td>Staff and maintenance per year <span class="tag range">range</span></td><td class="r">${fmtM(e.staff[0])}</td><td class="r">${fmtM(e.staff[1])}</td></tr>`;
-  s += `<tr><td><b>Opex per year</b></td><td class="r"><b>${fmtM(e.opex[0])}</b></td><td class="r"><b>${fmtM(e.opex[1])}</b></td></tr>`;
+  s += `<tr><td><b>Opex per year, steady state</b></td><td class="r"><b>${fmtM(e.opex[0])}</b></td><td class="r"><b>${fmtM(e.opex[1])}</b></td></tr>`;
   s += `<tr><td>Water per year, WUE ${e.wue} L/kWh</td><td class="r" colspan="2">${e.waterMgal.toFixed(e.waterMgal < 1 ? 2 : 0)} million gal</td></tr>`;
-  s += `<tr><td class="muted" colspan="3">Multipliers applied: redundancy ${R.costs.redundF.toFixed(2)}, cooling ${R.costs.coolF.toFixed(2)}, metro ${R.costs.metroF.toFixed(2)}, IT utilization ${e.util} <span class="tag assump">assumption</span>. Sources in the data pack below.</td></tr>`;
+  s += `<tr><td class="muted" colspan="3">Multipliers applied: redundancy ${R.costs.redundF.toFixed(2)}, cooling ${R.costs.coolF.toFixed(2)}; IT utilization ${e.util} of rated (LBNL range 0.6 to 0.8). Sources in the data pack below.</td></tr>`;
   t.innerHTML = s;
 }
 function fmtM(x) { return x.toLocaleString("en-US", { maximumFractionDigits: 0 }); }
@@ -167,7 +169,8 @@ function renderRisks() {
   for (const r of R.risks) {
     const row = document.createElement("div"); row.className = "risk";
     const lk = Math.round(r.likelihood * 5), im = Math.min(5, Math.max(1, Math.round(r.impact / 3)));
-    row.innerHTML = `<div><b>${esc(r.label)}</b></div><div class="small num">${dots(lk)} ${dots(im)}</div><div class="d">Likelihood ${esc(r.likelihoodLabel)}; slips the plan ${r.impact.toFixed(0)} months if it hits. ${esc(r.mitigation)}</div>`;
+    const imF = r.impactFull > r.impact + 0.5 ? `, full power ${r.impactFull.toFixed(0)} months` : "";
+    row.innerHTML = `<div><b>${esc(r.label)}</b></div><div class="small num">${dots(lk)} ${dots(Math.min(5, Math.max(1, Math.round(r.impactMax / 3))))}</div><div class="d">Likelihood ${esc(r.likelihoodLabel.split(":")[0])}; slips first token ${r.impact.toFixed(0)} months${imF} if it hits. ${esc(r.mitigation)}</div>`;
     el.appendChild(row);
   }
   if (!R.risks.length) el.innerHTML = `<p class="muted small">No risk values in the pack for this setup.</p>`;
@@ -180,7 +183,7 @@ function renderStress() {
     if (s.onsiteOnly && inp.power === "grid") continue;
     const v = pack.get(`stress_${s.id}_months`); if (!v) continue;
     const b = document.createElement("button"); b.type = "button"; b.setAttribute("aria-pressed", String(inp.stress === s.id));
-    b.innerHTML = `<b>${esc(s.label)}</b><span>${esc(s.desc)}</span><em>+${v.value} ${s.id === "labour" ? "%" : "mo"}</em>`;
+    b.innerHTML = `<b>${esc(s.label)}</b><span>${esc(s.desc)}</span><em>+${v.value} mo</em>`;
     b.addEventListener("click", () => { inp.stress = inp.stress === s.id ? null : s.id; recompute(); if (inp.stress) { setTime(0, true); play(); } });
     el.appendChild(b);
   }
@@ -285,6 +288,8 @@ function renderSources() {
     li.innerHTML = `${esc(g.publisher)}, <a href="${esc(g.source_url)}" rel="noopener" target="_blank">${esc(g.source_title)}</a> (${esc(String(g.published || ""))}; read ${esc(g.accessed)}). <span class="muted">${g.ids.length} value${g.ids.length > 1 ? "s" : ""}.</span>`;
     ol.appendChild(li);
   }
+  const assum = pack.json.values.filter(v => v.kind === "assumption");
+  if (assum.length) { const li = document.createElement("li"); li.innerHTML = `<b>Assumptions, ours, no public figure:</b> ${assum.map(v => `${esc(v.label)} (${esc(String(v.value))} ${esc(v.unit || "")})`).join("; ")}.`; ol.appendChild(li); }
 }
 
 // ---------------------------------------------------------------------------------------------------------
