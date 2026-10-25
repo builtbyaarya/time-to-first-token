@@ -1,4 +1,4 @@
-# notes_cost.md — capex / opex / cooling / compute pack (accessed 2026-10-24)
+# notes_cost.md: capex / opex / cooling / compute pack (accessed 2026-10-24)
 
 Output: data/pack_cost.json, 101 values (93 sourced, 8 derived; 0 assumptions). All numbers read off pages fetched today; curl is blocked by the proxy so every source went through WebFetch.
 
