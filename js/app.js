@@ -254,6 +254,11 @@ function onFrame(t) { fpsF++; if (t - fpsT > 1000) { fpsVal = Math.round(fpsF * 
 function bindOutputs() {
   $("#b-csv").addEventListener("click", () => { const rows = exportRows(pack, inp, R); download("time-to-first-token.csv", rows.map(r => r.map(csvCell).join(",")).join("\n"), "text/csv"); });
   $("#b-json").addEventListener("click", () => { download("time-to-first-token.json", JSON.stringify({ inputs: inp, results: { firstTokenMonths: R.firstToken, firstToken: R.liveDate, fullPower: R.fullDate, capexMusd: R.costs.total, facilityMusd: R.costs.site, opexMusdYear: R.energy.opex, pue: R.energy.pue, waterMgalYear: R.energy.waterMgal, tasks: R.tasks.map(t => ({ id: t.id, label: t.label, start: t.es, end: t.ef, critical: t.critical, slip: t.slip })) }, pack: pack.json }, null, 2), "application/json"); });
+  $("#b-card").addEventListener("click", async () => {
+    const c = shareCard(); if (!c) { toast("The card needs the site view"); return; }
+    $("#card-preview").src = c.toDataURL("image/png"); $("#card-preview").hidden = false;
+    c.toBlob((b) => { const a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = "time-to-first-token-card.png"; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500); toast("Share card downloaded"); }, "image/png");
+  });
   $("#b-link").addEventListener("click", async () => { try { await navigator.clipboard.writeText(location.href); toast("Link copied"); } catch (e) { toast(location.href); } });
   $("#report-form").addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -275,6 +280,58 @@ export function requestText() {
   lines.push(`result: first_token_months=${R.firstToken.toFixed(1)}; first_token=${R.liveDate}; full_power=${R.fullDate}; capex_site_musd=${R.costs.site[0].toFixed(0)}-${R.costs.site[1].toFixed(0)}; capex_total_musd=${R.costs.total[0].toFixed(0)}-${R.costs.total[1].toFixed(0)}; opex_musd=${R.energy.opex[0].toFixed(0)}-${R.energy.opex[1].toFixed(0)}; pue=${R.energy.pue}; water_mgal=${R.energy.waterMgal.toFixed(1)}`);
   return lines.join("\n");
 }
+// ---------------------------------------------------------------------------------------------------------
+// share card: a still of the finished site with the headline numbers, 1200 x 630
+// ---------------------------------------------------------------------------------------------------------
+const CARD_FONT = '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Inter, Helvetica, Arial, sans-serif';
+export function shareCard() {
+  const W = 1200, H = 630, PW = 440, X = W - PW + 40, RW = PW - 80;
+  // the site, finished, from the overview under the same sun
+  let still = null;
+  if (site && site.ok) still = site.still(W - PW, H, R.end);
+  else if (window.__drawFallback) { still = document.createElement("canvas"); still.width = W - PW; still.height = H; window.__drawFallback(still, R, R.end, inp); }
+  if (!still) return null;
+  const c = document.createElement("canvas"); c.width = W; c.height = H; const x = c.getContext("2d");
+  x.fillStyle = "#F3F3F1"; x.fillRect(0, 0, W, H);
+  x.drawImage(still, 0, 0);
+  x.fillStyle = "#FFFFFF"; x.fillRect(W - PW, 0, PW, H);
+  x.fillStyle = "#E2E2DE"; x.fillRect(W - PW, 0, 1, H);
+  const font = (px, wt = 400) => { x.font = `${wt} ${px}px ${CARD_FONT}`; try { x.letterSpacing = "0px"; } catch (e) { } };
+  const txt = (t, px, wt, color, y, ls) => { font(px, wt); x.fillStyle = color; try { x.letterSpacing = ls || "0px"; } catch (e) { } x.fillText(t, X, y); };
+  const wrap = (t, px, wt, color, y, lh) => { font(px, wt); x.fillStyle = color; try { x.letterSpacing = "0px"; } catch (e) { } const words = t.split(" "); let line = ""; for (const w of words) { const test = line ? line + " " + w : w; if (x.measureText(test).width > RW && line) { x.fillText(line, X, y); y += lh; line = w; } else line = test; } if (line) { x.fillText(line, X, y); y += lh; } return y; };
+  const stateName = pack.json.states.find(s => s.code === inp.state)?.name || inp.state;
+  const powerLabel = { grid: "grid only", bridge: `onsite bridge power (${genLabel(inp.bridge).toLowerCase()})`, hybrid: `hybrid power (${genLabel(inp.bridge).toLowerCase()})` }[inp.power];
+  const coolLabel = { liquid: "liquid cooling, dry coolers", liquid_tower: "liquid cooling, towers", air: "air cooling" }[inp.cool];
+  const redundLabel = inp.redund.toUpperCase().replace("TIER4", "Tier IV").replace("N1", "N+1");
+  // title block
+  txt("TIME TO FIRST TOKEN", 11, 600, "#7A7D85", 64, "0.12em");
+  font(84, 700); x.fillStyle = "#2D5BFF"; x.fillText(`${R.firstToken.toFixed(0)}`, X, 150);
+  const nw = x.measureText(`${R.firstToken.toFixed(0)}`).width;
+  font(18, 500); x.fillStyle = "#4A4D55"; x.fillText("months", X + nw + 12, 150);
+  txt(`First token ${fmtMonth(R.liveDate)}${inp.power !== "grid" && R.fullPower > R.firstToken + 0.5 ? `, full grid power ${fmtMonth(R.fullDate)}` : ""}`, 15, 400, "#4A4D55", 184);
+  x.fillStyle = "#E2E2DE"; x.fillRect(X, 212, RW, 1);
+  // four figures, two columns on one grid
+  const cell = (label, value, col, row) => { const cx = X + col * (RW / 2), cy = 252 + row * 84; font(11, 600); x.fillStyle = "#7A7D85"; try { x.letterSpacing = "0.08em"; } catch (e) { } x.fillText(label.toUpperCase(), cx, cy); try { x.letterSpacing = "0px"; } catch (e) { } font(22, 600); x.fillStyle = "#16181C"; x.fillText(value, cx, cy + 30); };
+  cell("Facility and power", `${musd(R.costs.site[0])} to ${musd(R.costs.site[1])}`, 0, 0);
+  cell("Opex per year", `${musd(R.energy.opex[0])} to ${musd(R.energy.opex[1])}`, 1, 0);
+  cell("Design PUE", R.energy.pue.toFixed(2), 0, 1);
+  cell("Water per year", `${R.energy.waterMgal < 1 ? R.energy.waterMgal.toFixed(2) : R.energy.waterMgal.toFixed(0)}M gal`, 1, 1);
+  x.fillStyle = "#E2E2DE"; x.fillRect(X, 408, RW, 1);
+  // the plan in words
+  let y = wrap(`${inp.mw} MW in ${stateName} on ${R.iso}, ${powerLabel}, ${redundLabel}, ${coolLabel}, ${R.racks.toLocaleString("en-US")} racks at ${inp.density} kW.`, 14, 400, "#16181C", 438, 21);
+  const crit = R.tasks.filter(t => t.critical).map(t => t.label.split(":")[0].split(",")[0]).filter((l, i, a) => l !== a[i - 1]);
+  y = wrap(`Critical path: ${crit.join(", ")}.`, 13, 400, "#4A4D55", y + 6, 19);
+  // footer
+  wrap(`Data pack ${pack.json.version}, ${pack.json.values.length} values, each with its source. A planning model, not a quote.`, 11, 400, "#7A7D85", H - 68, 16);
+  txt("github.com/builtbyaarya/time-to-first-token", 11, 500, "#16181C", H - 32);
+  // a small stamp on the site image
+  const stamp = `Site at first token, ${fmtMonth(R.liveDate)}`; font(12, 500); const sw = x.measureText(stamp).width + 24;
+  x.fillStyle = "rgba(255,255,255,0.92)"; rrect(x, 24, H - 24 - 30, sw, 30, 15); x.fill();
+  x.fillStyle = "#16181C"; x.fillText(stamp, 36, H - 24 - 10);
+  return c;
+}
+function rrect(x, px, py, w, h, r) { x.beginPath(); x.moveTo(px + r, py); x.arcTo(px + w, py, px + w, py + h, r); x.arcTo(px + w, py + h, px, py + h, r); x.arcTo(px, py + h, px, py, r); x.arcTo(px, py, px + w, py, r); x.closePath(); }
+
 function csvCell(v) { const s = String(v ?? ""); return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; }
 function download(name, text, type) { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([text], { type })); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500); toast(`${name} downloaded`); }
 let toastT = 0; function toast(msg) { const t = $("#toast"); t.textContent = msg; t.classList.add("on"); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("on"), 2200); }
@@ -312,5 +369,5 @@ function writeUrl() {
 }
 
 // test hooks
-window.TTFT = { get plan() { return R; }, get inputs() { return inp; }, get pack() { return pack; }, setTime: (m) => setTime(m, true), play, stopPlay, get site() { return site; }, get fps() { return fpsVal; }, recompute, set: (o) => { Object.assign(inp, o); fillSegsFromInp(); recompute(); }, requestText };
+window.TTFT = { get plan() { return R; }, get inputs() { return inp; }, get pack() { return pack; }, setTime: (m) => setTime(m, true), play, stopPlay, get site() { return site; }, get fps() { return fpsVal; }, recompute, set: (o) => { Object.assign(inp, o); fillSegsFromInp(); recompute(); }, requestText, shareCard };
 boot().then(() => { window.TTFT.ready = true; document.dispatchEvent(new Event("ttft:ready")); }).catch((e) => { console.error(e); $("#summary-line").textContent = `The data pack could not be loaded (${e.message}).`; });

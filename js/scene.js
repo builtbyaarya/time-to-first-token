@@ -387,10 +387,21 @@ export class Site {
     };
     requestAnimationFrame(tick);
   }
-  still(w = 1200, h = 700) { // a still render for the share card
-    const r = this.renderer; const cam = this.camera.clone(); cam.aspect = w / h; cam.updateProjectionMatrix();
-    const target = new THREE.WebGLRenderTarget(w, h); r.setRenderTarget(target); r.render(this.scene, cam); r.setRenderTarget(null);
-    const buf = new Uint8Array(w * h * 4); r.readRenderTargetPixels(target, 0, 0, w, h, buf); target.dispose(); return { w, h, buf };
+  still(w = 1200, h = 630, months = null) { // a still of the site for the share card
+    // Rendered on the page canvas itself, inside one task, so tone mapping, colour space and shadows match what the user sees;
+    // the canvas is put back before the browser paints. The camera is the overview from the same sun; the light never moves.
+    const r = this.renderer, c = this.canvas; if (!r) return null;
+    const keep = { time: this.time, theta: this.orbit.theta, phi: this.orbit.phi, dist: this.orbit.dist, pr: r.getPixelRatio(), cut: this.cut, clip: this.clip.constant };
+    if (months != null) this.time = months;
+    this.cut = 0; this.clip.constant = 60; this.dirty = true; this.update();
+    this.orbit.theta = -0.75; this.orbit.phi = 0.98; this.orbit.dist = 112 / Math.min(1, (w / h) / 1.25); this._applyOrbit();
+    r.setPixelRatio(1); r.setSize(w, h, false); this.camera.aspect = w / h; this.camera.updateProjectionMatrix();
+    r.render(this.scene, this.camera);
+    const out = document.createElement("canvas"); out.width = w; out.height = h; out.getContext("2d").drawImage(c, 0, 0, w, h);
+    this.time = keep.time; this.cut = keep.cut; this.clip.constant = keep.clip; this.orbit.theta = keep.theta; this.orbit.phi = keep.phi; this.orbit.dist = keep.dist; this._applyOrbit();
+    r.setPixelRatio(keep.pr); const cw = c.clientWidth || 600, ch = c.clientHeight || 400; r.setSize(cw, ch, false); this.camera.aspect = cw / ch; this.camera.updateProjectionMatrix();
+    this.dirty = true; this.update(); this.needs = true;
+    return out;
   }
 }
 
