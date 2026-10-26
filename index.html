@@ -11,7 +11,7 @@
 <meta name="theme-color" content="#F3F3F1">
 <link rel="stylesheet" href="css/style.css">
 <script type="importmap">
-{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js" } }
+{ "imports": { "three": "./js/vendor/three/three.module.js" } }
 </script>
 </head>
 <body>
@@ -95,12 +95,12 @@
         </div>
         <div class="field">
           <label for="in-target">Target go-live</label>
-          <input id="in-target" type="month" value="2028-06">
+          <input id="in-target" type="month" value="2028-06" placeholder="YYYY-MM" pattern="[0-9]{4}-[0-9]{2}">
           <div class="hint" id="in-target-hint"></div>
         </div>
         <div class="field">
           <label for="in-start">Project start</label>
-          <input id="in-start" type="month" value="2026-11">
+          <input id="in-start" type="month" value="2026-11" placeholder="YYYY-MM" pattern="[0-9]{4}-[0-9]{2}">
         </div>
       </section>
     </aside>

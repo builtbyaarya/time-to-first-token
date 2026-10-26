@@ -10,6 +10,7 @@ First public release. A speed-to-market planner for AI data centers: set the loc
 - The emailed feasibility study, built by `scripts/make_report.py` from the same pack and model as the page.
 - New in 1.1.0: the share card, a 1200 x 630 PNG of the finished site with the headline numbers, from the Export panel.
 - CSV and JSON export; a link that carries the inputs.
+- Fixed before release: Play now builds the site on 120 Hz screens, the schedule chart's year labels sit in their own year, and three.js is served from the site so the 3D scene works on networks that block outside CDNs.
 
 ## Trust
 

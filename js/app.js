@@ -6,7 +6,7 @@ const debug = new URLSearchParams(location.search).get("debug") === "1";
 const REPORT_FORM = "https://docs.google.com/forms/d/e/1FAIpQLSeVCVO7KwCtnVYKx85-GTwhld0cpOQGqnhj6VXOQdrDbmH1MQ/formResponse";
 const REPORT_FIELDS = { email: "entry.2022754142", run: "entry.1374242536" };
 
-let pack, inp, R, site, playing = false, playRaf = 0, holdUntil = 0;
+let pack, inp, R, site, playing = false, playRaf = 0, holdUntil = 0, tNow = 0, autoPlayT = 0;
 
 // ---------------------------------------------------------------------------------------------------------
 // boot
@@ -24,7 +24,7 @@ async function boot() {
   recompute();
   bindOutputs();
   renderSources();
-  if (!(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches)) setTimeout(() => play(), 900);
+  if (!(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches)) autoPlayT = setTimeout(() => { if (!playing) play(); }, 900);
 }
 
 function fillInputs() {
@@ -40,13 +40,15 @@ function fillInputs() {
   gp.addEventListener("change", () => { inp.gpu = gp.value; inp.density = pack.get(`gpu_${inp.gpu}`)?.value || inp.density; $("#in-density").value = inp.density; recompute(); });
   $("#in-mw").addEventListener("change", () => { inp.mw = clampNum($("#in-mw"), 10, 2000); recompute(); });
   $("#in-density").addEventListener("change", () => { inp.density = clampNum($("#in-density"), 10, 250); recompute(); });
-  $("#in-target").addEventListener("change", () => { if ($("#in-target").value) { inp.target = $("#in-target").value; recompute(); } });
-  $("#in-start").addEventListener("change", () => { if ($("#in-start").value) { inp.start = $("#in-start").value; recompute(); } });
+  $("#in-target").addEventListener("change", () => { const v = monthVal($("#in-target"), inp.target); if (v) { inp.target = v; recompute(); } });
+  $("#in-start").addEventListener("change", () => { const v = monthVal($("#in-start"), inp.start); if (v) { inp.start = v; recompute(); } });
   $("#in-bridge").addEventListener("change", () => { inp.bridge = $("#in-bridge").value; recompute(); });
   for (const [sel, key] of [["#in-power", "power"], ["#in-redund", "redund"], ["#in-cool", "cool"]]) {
     $(sel).addEventListener("click", (e) => { const b = e.target.closest("button"); if (!b) return; inp[key] = b.dataset.v; setSeg(sel, inp[key]); recompute(); });
   }
 }
+// Browsers without a month picker (Firefox on desktop, older Safari) show a plain text box: accept YYYY-MM only, otherwise put the last good value back.
+function monthVal(el, prev) { const v = (el.value || "").trim(); const ok = /^\d{4}-(0[1-9]|1[0-2])$/.test(v); if (!ok) { el.value = prev; return null; } return v; }
 function clampNum(el, lo, hi) { let v = Number(el.value); if (!isFinite(v)) v = lo; v = Math.max(lo, Math.min(hi, v)); el.value = v; return v; }
 function setSeg(sel, v) { for (const b of $(sel).querySelectorAll("button")) b.setAttribute("aria-pressed", String(b.dataset.v === v)); }
 
@@ -112,9 +114,14 @@ function renderGantt() {
   const span = Math.max(R.end, R.targetMonths) + 3; const x = (m) => L + (m / span) * (W - L - 12);
   svg.setAttribute("viewBox", `0 0 ${W} ${H}`); svg.setAttribute("height", H);
   let s = "";
-  // year grid
+  // year grid: a line at each January, the year label centred in its own band (partial bands too narrow for a label stay blank)
   const [sy, sm] = inp.start.split("-").map(Number);
-  for (let m = 0; m <= span; m++) { const abs = sy * 12 + (sm - 1) + m; if (abs % 12 === 0) { s += `<line x1="${x(m)}" y1="${top - 8}" x2="${x(m)}" y2="${H - 10}" stroke="#E2E2DE"/><text x="${x(m) + 3}" y="${top - 12}" font-size="11" fill="#7A7D85">${abs / 12}</text>`; } else if (abs % 6 === 0) s += `<line x1="${x(m)}" y1="${top - 4}" x2="${x(m)}" y2="${H - 10}" stroke="#EFEFEC"/>`; }
+  for (let m = 0; m <= span; m++) { const abs = sy * 12 + (sm - 1) + m; if (abs % 12 === 0) s += `<line x1="${x(m)}" y1="${top - 8}" x2="${x(m)}" y2="${H - 10}" stroke="#E2E2DE"/>`; else if (abs % 6 === 0) s += `<line x1="${x(m)}" y1="${top - 4}" x2="${x(m)}" y2="${H - 10}" stroke="#EFEFEC"/>`; }
+  for (let yr = sy; yr * 12 - (sy * 12 + sm - 1) <= span; yr++) {
+    const m0 = Math.max(0, yr * 12 - (sy * 12 + sm - 1)), m1 = Math.min(span, (yr + 1) * 12 - (sy * 12 + sm - 1));
+    if (x(m1) - x(m0) < 30) continue;
+    s += `<text x="${((x(m0) + x(m1)) / 2).toFixed(1)}" y="${top - 12}" font-size="11" fill="#7A7D85" text-anchor="middle">${yr}</text>`;
+  }
   tasks.forEach((t, i) => {
     const y = top + i * rowH; const label = phone ? short(t.label, 17) : short(t.label, 30);
     s += `<text x="0" y="${y + 14}" font-size="${phone ? 11 : 12}" fill="${t.critical ? "#16181C" : "#7A7D85"}" font-weight="${t.critical ? 600 : 400}">${esc(label)}</text>`;
@@ -205,9 +212,10 @@ function renderRail() {
 // ---------------------------------------------------------------------------------------------------------
 // time, play, HUD
 // ---------------------------------------------------------------------------------------------------------
-function curTime() { return (Number($("#scrub").value) / 1000) * (R ? R.end : 1); }
+function curTime() { return R ? Math.max(0, Math.min(R.end, tNow)) : 0; }
+function sliderTime() { return (Number($("#scrub").value) / 1000) * (R ? R.end : 1); }
 function setTime(m, quiet) {
-  m = Math.max(0, Math.min(R.end, m));
+  m = Math.max(0, Math.min(R.end, m)); tNow = m;
   $("#scrub").value = Math.round((m / R.end) * 1000);
   if (site) site.setTime(m); else if (window.__drawFallback) window.__drawFallback($("#fallback-canvas"), R, m, inp);
   // HUD
@@ -221,7 +229,7 @@ function setTime(m, quiet) {
   if (held) { const t = R.tasks.find(t => t.slip > 0); tag.textContent = `Held: ${STRESSES.find(s => s.id === inp.stress).label}, +${t.slip.toFixed(0)} months`; }
   if (!quiet) stopPlay();
 }
-$("#scrub").addEventListener("input", () => { stopPlay(); setTime(curTime(), true); });
+$("#scrub").addEventListener("input", () => { stopPlay(); setTime(sliderTime(), true); });
 function play() {
   if (playing) { stopPlay(); return; }
   if (curTime() >= R.end - 0.05) setTime(0, true);
@@ -240,8 +248,8 @@ function play() {
   };
   playRaf = requestAnimationFrame(step);
 }
-function stopPlay() { playing = false; if (site) site.drift = false; cancelAnimationFrame(playRaf); $("#play-icon").setAttribute("d", "M3 2l9 5-9 5z"); $("#b-play").setAttribute("aria-pressed", "false"); }
-$("#b-play").addEventListener("click", play);
+function stopPlay() { clearTimeout(autoPlayT); playing = false; if (site) site.drift = false; cancelAnimationFrame(playRaf); $("#play-icon").setAttribute("d", "M3 2l9 5-9 5z"); $("#b-play").setAttribute("aria-pressed", "false"); }
+$("#b-play").addEventListener("click", () => { clearTimeout(autoPlayT); play(); });
 $("#b-reset").addEventListener("click", () => { stopPlay(); inp.stress = null; inp.levers = {}; recompute(); setTime(0, true); if (site) site.setView("overview"); });
 $("#b-cut").addEventListener("click", () => { const on = $("#b-cut").getAttribute("aria-pressed") !== "true"; $("#b-cut").setAttribute("aria-pressed", String(on)); if (site) { site.setCut(on); if (on && !site.userMoved) site.setView("inside"); } });
 
