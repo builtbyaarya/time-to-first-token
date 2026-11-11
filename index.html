@@ -27,11 +27,11 @@
     <div class="w-cards" role="radiogroup" aria-label="Choose a view">
       <button type="button" class="w-card" role="radio" aria-checked="false" data-mode="beginner">
         <span class="w-k">Beginner</span>
-        <span class="w-d">The date, the cost and the one thing that sets them, in plain words.</span>
+        <span class="w-d">The date, the cost and why.</span>
       </button>
       <button type="button" class="w-card" role="radio" aria-checked="false" data-mode="engineer">
         <span class="w-k">Engineer</span>
-        <span class="w-d">The critical path, stress tests, levers, risks and the full cost, energy and water tables.</span>
+        <span class="w-d">Every task, number and source.</span>
       </button>
     </div>
   </div>
@@ -80,7 +80,7 @@
       </div>
       <ol class="steps" id="steps">
         <li class="step" data-step="location">
-          <button type="button" class="step-h" aria-expanded="false"><span class="step-n">01</span><span class="step-t">Location</span><span class="step-s" data-sum></span><i class="chev" aria-hidden="true"></i></button>
+          <button type="button" class="step-h" aria-expanded="false"><span class="step-n" aria-hidden="true">1</span><span class="step-t">Location</span><span class="step-s" data-sum></span><i class="chev" aria-hidden="true"></i></button>
           <div class="step-b">
             <label class="lbl" for="in-state">State and metro</label>
             <select id="in-state"></select>
@@ -89,7 +89,7 @@
           </div>
         </li>
         <li class="step" data-step="load">
-          <button type="button" class="step-h" aria-expanded="false"><span class="step-n">02</span><span class="step-t">IT load</span><span class="step-s" data-sum></span><i class="chev" aria-hidden="true"></i></button>
+          <button type="button" class="step-h" aria-expanded="false"><span class="step-n" aria-hidden="true">2</span><span class="step-t">IT load</span><span class="step-s" data-sum></span><i class="chev" aria-hidden="true"></i></button>
           <div class="step-b">
             <label class="lbl" for="in-mw">Critical IT load</label>
             <div class="unit-in"><input id="in-mw" type="number" min="10" max="2000" step="10" value="100" inputmode="numeric"><span>MW</span></div>
@@ -99,7 +99,7 @@
           </div>
         </li>
         <li class="step" data-step="power">
-          <button type="button" class="step-h" aria-expanded="false"><span class="step-n">03</span><span class="step-t">Power</span><span class="step-s" data-sum></span><i class="chev" aria-hidden="true"></i></button>
+          <button type="button" class="step-h" aria-expanded="false"><span class="step-n" aria-hidden="true">3</span><span class="step-t">Power</span><span class="step-s" data-sum></span><i class="chev" aria-hidden="true"></i></button>
           <div class="step-b">
             <span class="lbl" id="lbl-power">Strategy</span>
             <div class="seg seg-full" id="in-power" role="group" aria-labelledby="lbl-power">
@@ -121,7 +121,7 @@
           </div>
         </li>
         <li class="step" data-step="redund">
-          <button type="button" class="step-h" aria-expanded="false"><span class="step-n">04</span><span class="step-t">Redundancy</span><span class="step-s" data-sum></span><i class="chev" aria-hidden="true"></i></button>
+          <button type="button" class="step-h" aria-expanded="false"><span class="step-n" aria-hidden="true">4</span><span class="step-t">Redundancy</span><span class="step-s" data-sum></span><i class="chev" aria-hidden="true"></i></button>
           <div class="step-b">
             <div class="opts" id="in-redund" role="radiogroup" aria-label="Redundancy">
               <button type="button" class="opt" role="radio" data-v="n1"><b>N+1</b><span class="tier">Uptime Tier III</span><span class="od">One spare of each part. Concurrently maintainable: any part can be serviced without shutting down.</span></button>
@@ -133,7 +133,7 @@
           </div>
         </li>
         <li class="step" data-step="cooling">
-          <button type="button" class="step-h" aria-expanded="false"><span class="step-n">05</span><span class="step-t">Cooling</span><span class="step-s" data-sum></span><i class="chev" aria-hidden="true"></i></button>
+          <button type="button" class="step-h" aria-expanded="false"><span class="step-n" aria-hidden="true">5</span><span class="step-t">Cooling</span><span class="step-s" data-sum></span><i class="chev" aria-hidden="true"></i></button>
           <div class="step-b">
             <div class="opts" id="in-cool" role="radiogroup" aria-label="Cooling">
               <button type="button" class="opt" role="radio" data-v="liquid"><b>Liquid, dry coolers</b><span class="metrics" data-metrics="liquid"></span><span class="od">Closed loop to the chips; fans reject the heat. No cooling-water permit.</span></button>
@@ -146,7 +146,7 @@
           </div>
         </li>
         <li class="step" data-step="compute">
-          <button type="button" class="step-h" aria-expanded="false"><span class="step-n">06</span><span class="step-t">Compute</span><span class="step-s" data-sum></span><i class="chev" aria-hidden="true"></i></button>
+          <button type="button" class="step-h" aria-expanded="false"><span class="step-n" aria-hidden="true">6</span><span class="step-t">Compute</span><span class="step-s" data-sum></span><i class="chev" aria-hidden="true"></i></button>
           <div class="step-b">
             <label class="lbl" for="in-gpu">GPU generation</label>
             <select id="in-gpu"></select>
@@ -157,7 +157,7 @@
           </div>
         </li>
         <li class="step" data-step="schedule">
-          <button type="button" class="step-h" aria-expanded="false"><span class="step-n">07</span><span class="step-t">Schedule</span><span class="step-s" data-sum></span><i class="chev" aria-hidden="true"></i></button>
+          <button type="button" class="step-h" aria-expanded="false"><span class="step-n" aria-hidden="true">7</span><span class="step-t">Schedule</span><span class="step-s" data-sum></span><i class="chev" aria-hidden="true"></i></button>
           <div class="step-b">
             <div class="two">
               <div><label class="lbl" for="in-start">Project start</label><input id="in-start" type="month" value="2026-11" placeholder="YYYY-MM" pattern="[0-9]{4}-[0-9]{2}"></div>
@@ -214,20 +214,13 @@
             </div>
             <div class="sum-grid">
               <div><span>Build cost</span><b id="k-build">$0</b><em id="k-build-r"></em></div>
+              <div class="eng"><span>Rent a year</span><b id="k-rent">$0</b><em id="k-rent-s"></em></div>
+              <div class="eng"><span>Rent lost per month late</span><b id="k-rentm">$0</b><em id="k-rentm-s"></em></div>
               <div class="eng"><span>Tenant's GPUs, extra</span><b id="k-tenant">$0</b><em>Paid by the tenant</em></div>
-              <div class="eng"><span>Rent lost per month late</span><b id="k-rentm">$0</b><em id="k-rent-y"></em></div>
-              <div class="eng"><span>PUE and water</span><b id="k-pue">1.09</b><em id="k-water"></em></div>
             </div>
             <p class="sum-why" id="sum-why"></p>
             <p class="sum-notes" id="sum-notes" hidden></p>
           </article>
-
-          <section class="card eng" id="dev">
-            <div class="card-h"><div><p class="eyebrow">Developer view</p><h3>What the landlord builds and earns</h3></div></div>
-            <p class="sub" id="dev-sub"></p>
-            <div class="dev-grid" id="dev-grid"></div>
-            <p class="note" id="dev-note"></p>
-          </section>
 
           <section class="card eng" id="schedule">
             <div class="card-h"><div><p class="eyebrow">Schedule</p><h3>Critical path</h3></div>
@@ -235,27 +228,31 @@
             <svg class="gantt" id="gantt" viewBox="0 0 720 400" role="img" aria-label="Gantt chart of the plan"></svg>
           </section>
 
-          <section class="card eng" id="levers">
-            <div class="card-h"><div><p class="eyebrow">Levers</p><h3>What buys months back</h3></div></div>
-            <ol class="lever-list" id="lever-list"></ol>
-            <p class="note" id="lever-none"></p>
-          </section>
-
-          <section class="card eng" id="stress">
-            <div class="card-h"><div><p class="eyebrow">Stress test</p><h3>Replay a real kind of delay</h3></div></div>
-            <p class="sub">The build pauses at the stage the delay hits.</p>
-            <div class="stress" id="stress-list"></div>
-          </section>
-
-          <section class="card eng" id="risks">
-            <div class="card-h"><div><p class="eyebrow">Risk register</p><h3>Likelihood and impact on this plan</h3></div></div>
-            <div id="risk-list"></div>
-          </section>
-
           <section class="card eng" id="costs">
-            <div class="card-h"><div><p class="eyebrow">Money, energy, water</p><h3>Cost, energy and water</h3></div></div>
-            <div class="tbl-wrap"><table class="tbl" id="cost-table"></table></div>
+            <div class="card-h"><div><p class="eyebrow">Cost model</p><h3>Cost, energy and water</h3></div></div>
+            <p class="sub">Read it like a balance sheet: what the developer builds, what it earns, and what the tenant pays. The last column keeps a running total.</p>
+            <div class="mix" id="cost-mix" aria-hidden="true"></div>
+            <div class="tbl-wrap"><table class="tbl bs" id="cost-table"></table></div>
             <div class="tbl-wrap"><table class="tbl" id="energy-table"></table></div>
+          </section>
+
+          <section class="card eng" id="more">
+            <div class="card-h"><div><p class="eyebrow">Explore</p><h3>Look anything up</h3></div></div>
+            <div class="ask">
+              <input type="search" id="ask" placeholder="Try rent, transformers, water, Tier IV, payback" aria-label="Look something up in this plan" autocomplete="off">
+            </div>
+            <div class="chips ask-chips" id="ask-chips"></div>
+            <ol class="ask-out" id="ask-out"></ol>
+            <div class="seg seg-tabs" id="more-tabs" role="tablist" aria-label="More detail">
+              <button type="button" data-t="levers" aria-pressed="true">Levers</button>
+              <button type="button" data-t="stress" aria-pressed="false">Stress tests</button>
+              <button type="button" data-t="risks" aria-pressed="false">Risks</button>
+              <button type="button" data-t="dev" aria-pressed="false">Developer</button>
+            </div>
+            <div class="more-p" data-p="levers"><p class="sub">What buys months back, ranked. Tap one to apply it.</p><ol class="lever-list" id="lever-list"></ol><p class="note" id="lever-none"></p></div>
+            <div class="more-p" data-p="stress" hidden><p class="sub">Replay a real kind of delay. The build pauses at the stage it hits.</p><div class="stress" id="stress-list"></div></div>
+            <div class="more-p" data-p="risks" hidden><p class="sub">Likelihood and impact on this plan.</p><div id="risk-list"></div></div>
+            <div class="more-p" data-p="dev" hidden><p class="sub" id="dev-sub"></p><div class="dev-grid" id="dev-grid"></div><p class="note" id="dev-note"></p></div>
           </section>
         </div>
       </section>
@@ -310,6 +307,7 @@
   <p class="note">The address is used once, to send the study, and is not kept. The study is not a quote; check each figure against its source before relying on it.</p>
 </dialog>
 
+<div class="tip" id="tip" role="tooltip" hidden></div>
 <div class="toast" id="toast" role="status"></div>
 <script type="module" src="js/app.js"></script>
 </body>

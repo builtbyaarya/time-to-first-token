@@ -66,23 +66,34 @@ function fillInputs() {
   const gp = $("#in-gpu");
   for (const g of pack.json.gpus) { const o = document.createElement("option"); o.value = g.id; o.textContent = g.name; gp.appendChild(o); }
   syncInputs();
-  st.addEventListener("change", () => { inp.state = st.value; recompute(); });
+  st.addEventListener("change", () => { inp.state = st.value; recompute(); advance("location"); });
   gp.addEventListener("change", () => { inp.gpu = gp.value; inp.density = pack.get(`gpu_${inp.gpu}`)?.value || inp.density; recompute(); });
-  $("#in-mw").addEventListener("change", () => { inp.mw = clampNum($("#in-mw"), 10, 2000); recompute(); });
-  for (const b of $$("#mw-chips button")) b.addEventListener("click", () => { inp.mw = Number(b.dataset.mw); recompute(); });
+  $("#in-mw").addEventListener("change", () => { inp.mw = clampNum($("#in-mw"), 10, 2000); recompute(); advance("load"); });
+  for (const b of $$("#mw-chips button")) b.addEventListener("click", () => { inp.mw = Number(b.dataset.mw); recompute(); advance("load"); });
   const setDensity = (v) => { const [lo, hi] = densityRange(pack, inp.gpu); inp.density = Math.max(lo, Math.min(hi, Math.round(Number(v) || lo))); recompute(); };
   $("#in-density").addEventListener("change", () => setDensity($("#in-density").value));
   $("#in-density-range").addEventListener("input", () => { $("#in-density").value = $("#in-density-range").value; });
   $("#in-density-range").addEventListener("change", () => setDensity($("#in-density-range").value));
   $("#in-target").addEventListener("change", () => { const v = monthVal($("#in-target"), inp.target); if (v) { inp.target = v; recompute(); } });
   $("#in-start").addEventListener("change", () => { const v = monthVal($("#in-start"), inp.start); if (v) { inp.start = v; recompute(); } });
-  $("#in-bridge").addEventListener("change", () => { inp.bridge = $("#in-bridge").value; recompute(); });
-  $("#in-power").addEventListener("click", (e) => { const b = e.target.closest("button"); if (!b) return; inp.power = b.dataset.v; recompute(); });
-  for (const [sel, key] of [["#in-redund", "redund"], ["#in-cool", "cool"]]) $(sel).addEventListener("click", (e) => { const b = e.target.closest("button"); if (!b || b.disabled) return; inp[key] = b.dataset.v; recompute(); });
+  $("#in-bridge").addEventListener("change", () => { inp.bridge = $("#in-bridge").value; recompute(); advance("power"); });
+  // grid only needs no plant, so it moves on; an onsite strategy waits for the plant choice
+  $("#in-power").addEventListener("click", (e) => { const b = e.target.closest("button"); if (!b) return; inp.power = b.dataset.v; recompute(); if (inp.power === "grid") advance("power"); });
+  for (const [sel, key, step] of [["#in-redund", "redund", "redund"], ["#in-cool", "cool", "cooling"]]) $(sel).addEventListener("click", (e) => { const b = e.target.closest("button"); if (!b || b.disabled) return; inp[key] = b.dataset.v; recompute(); advance(step); });
   for (const li of $$(".step")) {
     li.querySelector(".step-h").addEventListener("click", () => li.classList.contains("open") ? closeStep(li) : openStep(li.dataset.step));
     li.querySelector(".next").addEventListener("click", () => { li.classList.add("done"); const i = STEP_ORDER.indexOf(li.dataset.step); if (i < STEP_ORDER.length - 1) openStep(STEP_ORDER[i + 1]); else { closeStep(li); $("#b-build").focus({ preventScroll: true }); $("#b-build").scrollIntoView({ block: "nearest", behavior: "smooth" }); } });
   }
+}
+// Apple-style flow: a finished choice closes its step and opens the next one. After the first build, a change just closes the step.
+let advT = 0;
+function advance(id) {
+  clearTimeout(advT);
+  advT = setTimeout(() => {
+    const li = $(`.step[data-step="${id}"]`); if (!li || !li.classList.contains("open")) return;
+    li.classList.add("done"); const i = STEP_ORDER.indexOf(id);
+    if (built || i === STEP_ORDER.length - 1) closeStep(li); else openStep(STEP_ORDER[i + 1]);
+  }, 260);
 }
 function openStep(id) {
   for (const li of $$(".step")) { const on = li.dataset.step === id; li.classList.toggle("open", on); li.querySelector(".step-h").setAttribute("aria-expanded", String(on)); }
@@ -160,7 +171,7 @@ function build(scroll = true) {
 // ---------------------------------------------------------------------------------------------------------
 // results
 // ---------------------------------------------------------------------------------------------------------
-function renderResults() { renderSummary(); if (mode === "engineer") { renderDev(); renderGantt(); renderLevers(); renderStress(); renderRisks(); renderCosts(); } }
+function renderResults() { renderSummary(); if (mode === "engineer") { renderGantt(); renderCosts(); renderDev(); renderLevers(); renderStress(); renderRisks(); buildIndex(); renderAsk(); } }
 
 function renderSummary() {
   $("#k-live").textContent = fmtMonth(R.liveDate);
@@ -171,10 +182,10 @@ function renderSummary() {
   $("#k-build").textContent = musd(mid(R.costs.site));
   $("#k-build-r").textContent = mode === "engineer" ? `Range ${musd(R.costs.site[0])} to ${musd(R.costs.site[1])}. Land, building, power, cooling` : `Land, building, power and cooling. The tenant's GPUs, about ${musd(mid(R.costs.compute))}, are extra.`;
   $("#k-tenant").textContent = musd(mid(R.costs.compute));
+  $("#k-rent").textContent = musd(R.lease.rentYear);
+  $("#k-rent-s").textContent = `${(R.lease.share * 100).toFixed(1)}% of build cost, ${R.lease.termYears}-year lease`;
   $("#k-rentm").textContent = musd(R.lease.perMonth);
-  $("#k-rent-y").textContent = `Of ${musd(R.lease.rentYear)} rent a year`;
-  $("#k-pue").textContent = `PUE ${R.energy.pue.toFixed(2)}`;
-  $("#k-water").textContent = R.energy.waterMgal < 0.05 ? "No cooling water used" : `${fmtGal(R.energy.waterMgal)} of water a year`;
+  $("#k-rentm-s").textContent = R.lease.lateMonths >= 0.5 ? `${musd(R.lease.lostVsTarget)} lost at this date` : "On or ahead of target";
   $("#sum-why").textContent = whatSetsDate();
   const n = $("#sum-notes"); n.hidden = !(R.inputNotes || []).length; n.textContent = (R.inputNotes || []).join(" ");
 }
@@ -226,7 +237,7 @@ function renderGantt() {
   for (let yr = sy; yr * 12 - (sy * 12 + sm - 1) <= span; yr++) {
     const m0 = Math.max(0, yr * 12 - (sy * 12 + sm - 1)), m1 = Math.min(span, (yr + 1) * 12 - (sy * 12 + sm - 1));
     if (x(m1) - x(m0) < 34) continue;
-    s += `<text x="${((x(m0) + x(m1)) / 2).toFixed(1)}" y="${top - 14}" font-size="11" font-family="IBM Plex Mono, monospace" fill="#75746E" text-anchor="middle">${yr}</text>`;
+    s += `<text x="${((x(m0) + x(m1)) / 2).toFixed(1)}" y="${top - 14}" font-size="11" fill="#75746E" text-anchor="middle">${yr}</text>`;
   }
   // the target and first-output lines sit under the labels and bars
   s += `<line x1="${x(R.targetMonths)}" y1="${top - 8}" x2="${x(R.targetMonths)}" y2="${H - 6}" stroke="#2F9A7E" stroke-width="1.5" stroke-dasharray="4 3"/>`;
@@ -285,31 +296,63 @@ function renderRisks() {
 }
 function dots(n) { return `<span class="dots" aria-label="${n} of 5">${[1, 2, 3, 4, 5].map(i => `<i class="${i <= n ? "on" : ""}"></i>`).join("")}</span>`; }
 
+const MIX = ["#1E5C4F", "#2F9A7E", "#8CC2AF", "#C9A66B", "#B4471B", "#6B7A8F", "#D9B8A0"];
 function renderCosts() {
-  const row = (label, lo, hi, cls = "") => `<tr class="${cls}"><td>${label}</td><td class="r">${fmtM(lo)}</td><td class="r mid">${fmtM((lo + hi) / 2)}</td><td class="r">${fmtM(hi)}</td></tr>`;
-  let s = `<thead><tr><th>Build cost, $M</th><th class="r">Low</th><th class="r mid">Mid</th><th class="r">High</th></tr></thead><tbody>`;
-  for (const l of R.costs.lines) s += row(`${esc(l.label)}${kindTag(l.id)}`, l.lo, l.hi);
-  s += row("Build cost, developer", R.costs.site[0], R.costs.site[1], "tot");
-  s += row(`Tenant's cost: GPU racks${kindTag(`compute_capex_per_mw__${inp.gpu}`)}`, R.costs.compute[0], R.costs.compute[1], "sep");
-  s += row(`Rent per year, developer's income${kindTag("rent_per_mw_year")}`, R.lease.rentRange[0], R.lease.rentRange[1]);
-  s += `<tr><td colspan="4" class="muted small">Construction at Turner &amp; Townsend's $14 to $16 per watt for the most advanced US AI facilities (Turner &amp; Townsend is a construction cost consultancy); land from Cushman &amp; Wakefield, a real estate firm. Multipliers: redundancy ${R.costs.redundF.toFixed(2)}, cooling ${R.costs.coolF.toFixed(2)}.</td></tr></tbody>`;
+  const L = R.lease, e = R.energy; let run = 0; const ph = innerWidth < 640; // phones: item, mid and running total; the range goes under the item
+  const C5 = ph ? 3 : 5;
+  const money = (x) => `$${fmtM(x)}M`;
+  const head = (t) => `<tr class="grp"><td colspan="${C5}">${t}</td></tr>`;
+  const row = (label, lo, hi, opt = {}) => { const m = (lo + hi) / 2; if (opt.add) run += m; const dot = opt.dot ? `<i class="dot" style="background:${opt.dot}"></i>` : ""; const rn = `<td class="r run">${opt.add || opt.showRun ? fmtM(run) : ""}</td>`;
+    return ph ? `<tr class="${opt.cls || ""}"><td>${dot}${label}<span class="rg">${fmtM(lo)} to ${fmtM(hi)}</span></td><td class="r mid">${fmtM(m)}</td>${rn}</tr>` : `<tr class="${opt.cls || ""}"><td>${dot}${label}</td><td class="r">${fmtM(lo)}</td><td class="r mid">${fmtM(m)}</td><td class="r">${fmtM(hi)}</td>${rn}</tr>`; };
+  const one = (label, v, cls = "") => `<tr class="${cls}"><td>${label}</td><td class="r" colspan="${ph ? 2 : 3}">${v}</td>${ph ? "" : `<td class="r run"></td>`}</tr>`;
+  let s = ph ? `<thead><tr><th>$ million</th><th class="r mid">Mid</th><th class="r run">Running</th></tr></thead><tbody>` : `<thead><tr><th>$ million</th><th class="r">Low</th><th class="r mid">Mid</th><th class="r">High</th><th class="r run">Running total</th></tr></thead><tbody>`;
+  s += head("What the developer builds");
+  R.costs.lines.forEach((l, i) => { s += row(`${esc(l.label)}${kindTag(l.id)}`, l.lo, l.hi, { add: true, dot: MIX[i % MIX.length] }); });
+  s += row("Build cost", R.costs.site[0], R.costs.site[1], { cls: "tot", showRun: true });
+  s += head("What the developer earns");
+  s += row(`Rent a year${kindTag("rent_per_mw_year")}`, L.rentRange[0], L.rentRange[1]);
+  s += row(`Rent over the ${L.termYears}-year lease${tipTag("derived", `Rent a year times the ${L.termYears}-year base term. The 3% yearly escalator is already inside Hut 8's contract values, so this is the average year times ${L.termYears}.`)}`, L.rentRange[0] * L.termYears, L.rentRange[1] * L.termYears);
+  s += one(`Rent as a share of build cost${tipTag("derived", `Mid rent a year divided by mid build cost. Check case: Hut 8's River Bend earns about ${(pack.v("check_river_bend_rent_share") * 100).toFixed(1)}% a year on its $3.25B of construction notes.`)}`, `${(L.share * 100).toFixed(1)}% a year`);
+  s += one(`Simple payback${tipTag("derived", "Mid build cost divided by mid rent a year, before financing, taxes or the escalator.")}`, `${(L.buildMid / L.rentYear).toFixed(1)} years`);
+  s += one(`Rent lost per month late${tipTag("derived", "Rent a year divided by 12. Every month the site misses its date, the developer goes without this.")}`, money(L.perMonth));
+  run = mid(R.costs.site);
+  s += head("What the tenant pays");
+  s += row(`GPU racks, brought by the tenant${kindTag(`compute_capex_per_mw__${inp.gpu}`)}`, R.costs.compute[0], R.costs.compute[1], { add: true, dot: "#17181B" });
+  s += row("All-in to first token, developer plus tenant", R.costs.total[0], R.costs.total[1], { cls: "tot", showRun: true });
+  s += row(`Running costs a year, paid by the tenant under triple net${tipTag("derived", "Electricity, any onsite gas, and staff and maintenance. A triple-net tenant pays these on top of rent.")}`, e.opex[0], e.opex[1]);
+  s += `<tr><td colspan="${C5}" class="muted small">Construction at Turner &amp; Townsend's $14 to $16 per watt for the most advanced US AI facilities (Turner &amp; Townsend is a construction cost consultancy); land from Cushman &amp; Wakefield, a real estate firm; rent from Hut 8, a developer that builds AI data centers and leases them. Multipliers: redundancy ${R.costs.redundF.toFixed(2)}, cooling ${R.costs.coolF.toFixed(2)}.</td></tr></tbody>`;
   $("#cost-table").innerHTML = s;
-  const e = R.energy; const one = (label, v) => `<tr><td>${label}</td><td class="r" colspan="3">${v}</td></tr>`;
-  let t = `<thead><tr><th>Energy and water, a year</th><th class="r">Low</th><th class="r mid">Mid</th><th class="r">High</th></tr></thead><tbody>`;
-  t += one(`Electricity${e.onsiteShare ? `, grid share ${Math.round((1 - e.onsiteShare) * 100)}%` : ""}, ${e.priceC.toFixed(2)} c/kWh`, `$${fmtM(e.elecGrid)}M`);
-  if (e.fuel) t += one(`Gas for the onsite share, Henry Hub price${tag("assumption")}`, `$${fmtM(e.fuel)}M`);
-  if (e.bridgeFuelYear) t += one(`Gas while on bridge power, until the grid connects${tag("assumption")}`, `$${fmtM(e.bridgeFuelYear)}M`);
-  t += row("Staff and maintenance, $M", e.staff[0], e.staff[1]);
-  t += row("Opex, steady state, $M", e.opex[0], e.opex[1], "tot");
-  const pl = pack.get(`pue__${inp.cool}`), wl = pack.get(`wue__${inp.cool}`);
-  t += `<tr class="sep"><td>Design PUE, ${COOL[inp.cool].toLowerCase()}</td><td class="r">${(pl.low ?? pl.value).toFixed(2)}</td><td class="r mid">${pl.value.toFixed(2)}</td><td class="r">${(pl.high ?? pl.value).toFixed(2)}</td></tr>`;
-  t += `<tr><td>WUE, L per kWh of IT</td><td class="r">${fmtW(wl.low ?? wl.value)}</td><td class="r mid">${fmtW(wl.value)}</td><td class="r">${fmtW(wl.high ?? wl.value)}</td></tr>`;
-  t += one("Water", fmtGal(e.waterMgal));
-  t += one("Heat to air, fan walls", `${R.airSide.mw.toFixed(0)} MW, about ${R.airSide.units} units`);
-  t += `<tr><td colspan="4" class="muted small">IT runs at ${e.util} of rated power on average (LBNL range 0.6 to 0.8). PUE and WUE are for this exact cooling design, read from LBNL's 2024 report.</td></tr></tbody>`;
+  // composition bar of the build cost, same colours as the dots
+  const tot = mid(R.costs.site);
+  $("#cost-mix").innerHTML = `<div class="mix-bar">${R.costs.lines.map((l, i) => `<span style="width:${(((l.lo + l.hi) / 2) / tot * 100).toFixed(2)}%;background:${MIX[i % MIX.length]}" title="${esc(l.label)}"></span>`).join("")}</div><div class="mix-leg">${R.costs.lines.map((l, i) => `<span><i style="background:${MIX[i % MIX.length]}"></i>${esc(l.label)} ${Math.round((l.lo + l.hi) / 2 / tot * 100)}%</span>`).join("")}</div>`;
+  const one4 = (label, v) => ph ? `<tr><td>${label}</td><td class="r" colspan="2">${v}</td></tr>` : `<tr><td>${label}</td><td class="r" colspan="3">${v}</td><td class="r run"></td></tr>`;
+  const r4 = (label, lo, m, hi) => ph ? `<tr><td>${label}<span class="rg">${lo} to ${hi}</span></td><td class="r mid">${m}</td><td class="r run"></td></tr>` : `<tr><td>${label}</td><td class="r">${lo}</td><td class="r mid">${m}</td><td class="r">${hi}</td><td class="r run"></td></tr>`;
+  let t = ph ? `<thead><tr><th>Energy and water, a year</th><th class="r mid">Mid</th><th class="r run"></th></tr></thead><tbody>` : `<thead><tr><th>Energy and water, a year</th><th class="r">Low</th><th class="r mid">Mid</th><th class="r">High</th><th class="r run"></th></tr></thead><tbody>`;
+  const pl = pack.get(`pue__${inp.cool}`), wl = pack.get(`wue__${inp.cool}`), ut = pack.get("it_utilization");
+  t += r4(`Design PUE, ${COOL[inp.cool].toLowerCase()}${kindTag(`pue__${inp.cool}`, true)}`, (pl.low ?? pl.value).toFixed(2), pl.value.toFixed(2), (pl.high ?? pl.value).toFixed(2));
+  t += r4(`WUE, litres per kWh of IT${kindTag(`wue__${inp.cool}`, true)}`, fmtW(wl.low ?? wl.value), fmtW(wl.value), fmtW(wl.high ?? wl.value));
+  t += r4(`Average IT load, share of rated${kindTag("it_utilization", true)}`, (ut.low ?? ut.value).toFixed(2), ut.value.toFixed(2), (ut.high ?? ut.value).toFixed(2));
+  t += one4("Energy used", `${fmtM(e.mwhYear / 1000)} GWh`);
+  t += one4(`Electricity${e.onsiteShare ? `, grid share ${Math.round((1 - e.onsiteShare) * 100)}%` : ""}, ${e.priceC.toFixed(2)} c/kWh`, money(e.elecGrid));
+  if (e.fuel) t += one4(`Gas for the onsite share, Henry Hub price${tag("assumption")}`, money(e.fuel));
+  if (e.bridgeFuelYear) t += one4(`Gas while on bridge power, until the grid connects${tag("assumption")}`, money(e.bridgeFuelYear));
+  t += r4("Staff and maintenance, $M", fmtM(e.staff[0]), fmtM((e.staff[0] + e.staff[1]) / 2), fmtM(e.staff[1]));
+  t += r4("Running costs, $M", fmtM(e.opex[0]), fmtM((e.opex[0] + e.opex[1]) / 2), fmtM(e.opex[1])).replace("<tr>", '<tr class="tot">');
+  t += one4("Water", fmtGal(e.waterMgal));
+  t += one4(`Heat to air, fan walls${kindTag("liquid_air_heat_share", true)}`, `${R.airSide.mw.toFixed(0)} MW, about ${R.airSide.units} units`);
+  t += one4("Racks", `${R.racks.toLocaleString("en-US")} at ${inp.density} kW`);
+  t += `<tr><td colspan="${C5}" class="muted small">PUE and WUE are for this exact cooling design, read from the 2024 report of LBNL, the US national lab that studies data center energy.</td></tr></tbody>`;
   $("#energy-table").innerHTML = t;
 }
-function kindTag(id) { const v = pack.get(id); return v ? tag(v.kind === "sourced" ? "" : v.kind) : ""; }
+// a small tag that opens a box with how a value was worked out
+function tipTag(kind, text) { return ` <button type="button" class="tag ${kind} has-tip" data-tip="${esc(text)}">${kind}</button>`; }
+function kindTag(id, always) {
+  const v = pack.get(id); if (!v) return "";
+  if (v.kind === "sourced" && !always) return "";
+  const src = v.source_url ? `Source: ${v.publisher}, ${v.published}.` : "Our assumption; no public figure was found.";
+  const how = (v.note || "").length > 230 ? v.note.slice(0, 228).replace(/\s+\S*$/, "") + "..." : (v.note || "");
+  return ` <button type="button" class="tag ${v.kind} has-tip" data-tip="${esc(`${how} ${src}`.trim())}">${v.kind}</button>`;
+}
 function tag(k) { return k ? ` <span class="tag ${k}">${k}</span>` : ""; }
 function fmtM(x) { return x.toLocaleString("en-US", { maximumFractionDigits: 0 }); }
 export function musd(x) { return x >= 1000 ? `$${(x / 1000).toFixed(x >= 10000 ? 0 : 1)}B` : x >= 10 ? `$${x.toFixed(0)}M` : `$${x.toFixed(1)}M`; }
@@ -382,6 +425,67 @@ function onFrame(t) { fpsF++; if (t - fpsT > 1000) { fpsVal = Math.round(fpsF * 
 // ---------------------------------------------------------------------------------------------------------
 // chrome: tabs, mode, share menu, scene buttons
 // ---------------------------------------------------------------------------------------------------------
+// ---------------------------------------------------------------------------------------------------------
+// Explore: look anything up in this plan
+// ---------------------------------------------------------------------------------------------------------
+let ITEMS = [];
+const SYN = { money: "cost", price: "cost", spend: "cost", income: "rent", lease: "rent", landlord: "rent developer", when: "date token", date: "token date", grid: "power utility", electricity: "power energy", heat: "cooling air", chip: "gpu", chips: "gpu", nvidia: "gpu", delay: "late stress risk", slip: "stress risk", fast: "lever", faster: "lever", sooner: "lever", tier: "redundancy tier", uptime: "tier" };
+function buildIndex() {
+  const at = (m) => fmtMonth(addMonths(inp.start, m)); const L = R.lease, e = R.energy; const I = [];
+  const add = (t, v, d, k, go) => I.push({ t, v, d, k: `${t} ${d} ${k || ""}`.toLowerCase(), go });
+  add("First token", fmtMonth(R.liveDate), `${R.firstToken.toFixed(0)} months from the start. ${whatSetsDate()}`, "first output date token live when", "summary");
+  if (R.fullPower > R.firstToken + 0.5) add("Full power", fmtMonth(R.fullDate), "When the whole site runs, after first token.", "full power date grid", "summary");
+  add("Versus target", R.vsTarget >= 0 ? `${R.vsTarget.toFixed(0)} months ahead` : `${(-R.vsTarget).toFixed(0)} months behind`, `Target ${fmtMonth(inp.target)}.`, "target late behind ahead date", "summary");
+  add("Build cost", musd(L.buildMid), `${musd(L.build[0])} to ${musd(L.build[1])}: land, building, power and cooling, paid by the developer.`, "cost capex build developer total", "costs");
+  for (const l of R.costs.lines) add(l.label, musd((l.lo + l.hi) / 2), `${musd(l.lo)} to ${musd(l.hi)}, part of the build cost.`, "cost capex line", "costs");
+  add("Tenant's GPUs", musd(mid(R.costs.compute)), `${musd(R.costs.compute[0])} to ${musd(R.costs.compute[1])}, brought and paid for by the tenant.`, "gpu racks tenant cost compute nvidia", "costs");
+  add("All-in to first token", musd(mid(R.costs.total)), "Build cost plus the tenant's GPUs.", "cost total all-in", "costs");
+  add("Rent a year", musd(L.rentYear), `${(L.share * 100).toFixed(1)}% of build cost each year, on a ${L.termYears}-year triple-net lease, at Hut 8's River Bend rent.`, "rent income developer lease landlord", "dev");
+  add("Rent lost per month late", musd(L.perMonth), L.lateMonths >= 0.5 ? `${L.lateMonths.toFixed(0)} months late at this date: about ${musd(L.lostVsTarget)} of rent.` : "The plan is on or ahead of its target.", "rent delay late lost developer", "dev");
+  add("Simple payback", `${(L.buildMid / L.rentYear).toFixed(1)} years`, "Build cost divided by rent a year, before financing.", "payback rent return developer", "costs");
+  add("Running costs a year", musd(mid(e.opex)), "Electricity and staff, paid by the tenant under triple net.", "opex running cost electricity staff", "costs");
+  add("Electricity bill", musd(e.elecGrid), `${fmtM(e.mwhYear / 1000)} GWh a year at ${e.priceC.toFixed(2)} cents per kWh.`, "electricity power energy bill price", "costs");
+  add("PUE", e.pue.toFixed(2), `Design value for ${COOL[inp.cool].toLowerCase()}, from LBNL.`, "pue efficiency cooling energy", "costs");
+  add("Water", fmtGal(e.waterMgal), `WUE ${fmtW(e.wue)} litres per kWh of IT.`, "water wue cooling towers", "costs");
+  add("Fan walls", `${R.airSide.units} units`, `${R.airSide.mw.toFixed(0)} MW of heat still goes to air, at ${R.airSide.unitKw} kW per fan wall.`, "fan walls air heat cooling crah", "costs");
+  add("Racks", R.racks.toLocaleString("en-US"), `${inp.density} kW each.`, "racks density gpu", "costs");
+  add("Redundancy", REDUND[inp.redund], "Set in step 4.", "redundancy tier uptime n+1 2n", null);
+  for (const t of R.tasks) add(t.label, `${at(t.es)} to ${at(t.ef)}`, `${t.wait ? "Waiting on the utility" : t.months.toFixed(0) + " months"}${t.critical ? ", on the critical path" : ", has float"}.`, "task schedule date critical", "schedule");
+  for (const l of R.levers) add(l.label, l.months >= 0.5 ? `Saves ${l.months.toFixed(0)} months` : l.months <= -0.5 ? `Adds ${(-l.months).toFixed(0)} months` : "Same date", l.desc, "lever faster", "levers");
+  for (const r of R.risks) add(r.label, `${r.impact.toFixed(0)} months if it hits`, `Likelihood ${r.likelihoodLabel.split(":")[0]}. ${r.mitigation}`, "risk delay stress", "risks");
+  ITEMS = I;
+}
+function renderAsk() {
+  const chips = ["Rent", "Payback", "Transformers", "Water", "Fan walls", "GPU", "Full power", "Tier"];
+  $("#ask-chips").innerHTML = chips.map(c => `<button type="button">${c}</button>`).join("");
+  const q = ($("#ask").value || "").trim().toLowerCase(); const out = $("#ask-out");
+  if (!q) { out.innerHTML = ""; return; }
+  const words = q.split(/\s+/).flatMap(w => [w, ...(SYN[w] || "").split(" ").filter(Boolean)]);
+  const score = (it) => q.split(/\s+/).reduce((a, w) => a + ([w, ...(SYN[w] || "").split(" ")].some(x => x && it.k.includes(x)) ? 1 : 0), 0) + (it.t.toLowerCase().includes(q) ? 2 : 0);
+  const hits = ITEMS.map(it => ({ it, s: score(it) })).filter(x => x.s > 0).sort((a, b) => b.s - a.s).slice(0, 6);
+  out.innerHTML = hits.length ? hits.map(({ it }, i) => `<li data-i="${ITEMS.indexOf(it)}"><b>${esc(it.t)}</b><span class="av">${esc(it.v)}</span><span class="ad">${esc(it.d)}</span></li>`).join("") : `<li class="none">Nothing in this plan matches. Try a word like rent, water, transformers or payback, or search every source in the Data &amp; Sources tab.</li>`;
+}
+function goTo(sec) {
+  if (["levers", "stress", "risks", "dev"].includes(sec)) { showMore(sec); $("#more-tabs").scrollIntoView({ block: "start", behavior: "smooth" }); }
+  else if (sec) $(`#${sec}`)?.scrollIntoView({ block: "start", behavior: "smooth" });
+}
+function showMore(t) { for (const b of $$("#more-tabs button")) b.setAttribute("aria-pressed", String(b.dataset.t === t)); for (const p of $$(".more-p")) p.hidden = p.dataset.p !== t; }
+
+// one floating box for every tag that explains how a value was worked out
+function bindTips() {
+  const tip = $("#tip"); let pinned = null, anchor = null;
+  const show = (el) => { anchor = el; tip.textContent = el.dataset.tip; tip.hidden = false; const r = el.getBoundingClientRect(); const w = Math.min(300, innerWidth - 24); tip.style.width = w + "px";
+    let x = Math.min(Math.max(12, r.left + r.width / 2 - w / 2), innerWidth - w - 12); let y = r.bottom + 8; tip.style.left = x + "px"; tip.style.top = y + "px";
+    const h = tip.offsetHeight; if (y + h > innerHeight - 12) tip.style.top = (r.top - h - 8) + "px"; };
+  const hide = () => { tip.hidden = true; pinned = null; };
+  document.addEventListener("mouseover", (e) => { const el = e.target.closest(".has-tip"); if (el && !pinned) show(el); });
+  document.addEventListener("mouseout", (e) => { const el = e.target.closest(".has-tip"); if (el && !pinned) tip.hidden = true; });
+  document.addEventListener("focusin", (e) => { const el = e.target.closest(".has-tip"); if (el) show(el); });
+  document.addEventListener("focusout", (e) => { if (e.target.closest(".has-tip") && !pinned) tip.hidden = true; });
+  document.addEventListener("click", (e) => { const el = e.target.closest(".has-tip"); if (el) { e.stopPropagation(); if (pinned === el) hide(); else { show(el); pinned = el; } } else if (pinned) hide(); });
+  addEventListener("scroll", () => { if (!tip.hidden && anchor) { const r = anchor.getBoundingClientRect(); if (r.bottom < 0 || r.top > innerHeight) hide(); else show(anchor); } }, { passive: true });
+}
+
 function bindChrome() {
   for (const b of $$("#mode button")) b.addEventListener("click", () => setMode(b.dataset.mode));
   for (const b of $$(".tabs button")) b.addEventListener("click", () => showTab(b.dataset.tab));
@@ -396,7 +500,12 @@ function bindChrome() {
   document.addEventListener("click", (e) => { if (!menu.hidden && !menu.contains(e.target)) close(); });
   document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !menu.hidden) { close(); btn.focus(); } });
   for (const b of menu.querySelectorAll("button")) b.addEventListener("click", close);
-  let rz = 0; addEventListener("resize", () => { clearTimeout(rz); rz = setTimeout(() => { if (built && mode === "engineer") renderGantt(); }, 120); });
+  for (const b of $$("#more-tabs button")) b.addEventListener("click", () => showMore(b.dataset.t));
+  $("#ask").addEventListener("input", renderAsk);
+  $("#ask-chips").addEventListener("click", (e) => { const b = e.target.closest("button"); if (!b) return; $("#ask").value = b.textContent; renderAsk(); });
+  $("#ask-out").addEventListener("click", (e) => { const li = e.target.closest("li[data-i]"); if (li) goTo(ITEMS[Number(li.dataset.i)].go); });
+  bindTips();
+  let rz = 0; addEventListener("resize", () => { clearTimeout(rz); rz = setTimeout(() => { if (built && mode === "engineer") { renderGantt(); renderCosts(); } }, 120); });
 }
 function showTab(tab) {
   for (const b of $$(".tabs button")) b.setAttribute("aria-selected", String(b.dataset.tab === tab));
@@ -500,7 +609,7 @@ function drawRows() {
   for (const v of hit) {
     const num = v.text && (v.unit === "" || v.unit === "flag" || v.value === 0) ? `<span class="v">${esc(v.text)}</span>` : `<span class="v">${n(v.value)} ${esc(v.unit || "")}</span>${v.low != null || v.high != null ? `<span class="rg">range ${n(v.low ?? v.value)} to ${n(v.high ?? v.value)}</span>` : ""}`;
     const src = v.source_url ? `<a href="${esc(v.source_url)}" target="_blank" rel="noopener">${esc(v.publisher)}</a><span>${esc(v.source_title || "")}</span>` : `<b>${esc(v.publisher)}</b>`;
-    s += `<div class="pr" role="row"><div class="c-lab"><b>${esc(v.label)}</b><span class="id">${esc(v.id)}</span>${v.note ? `<span class="nt">${esc(v.note)}</span>` : ""}</div><div class="c-num">${num}</div><div class="c-kind"><span class="tag ${v.kind === "sourced" ? "" : v.kind}">${esc(v.kind)}</span></div><div class="c-src src">${src}</div><div class="c-dt dt">${esc(String(v.published || ""))}<span>read ${esc(v.accessed || "")}</span></div></div>`;
+    s += `<div class="pr" role="row"><div class="c-lab"><b>${esc(v.label)}</b><span class="id">${esc(v.id)}</span>${v.note ? `<span class="nt">${esc(v.note)}</span>` : ""}</div><div class="c-num">${num}</div><div class="c-kind"><span class="tag ${v.kind === "sourced" ? "" : v.kind}${v.kind !== "sourced" && v.note ? " has-tip" : ""}"${v.kind !== "sourced" && v.note ? ` tabindex="0" data-tip="${esc(v.note)}"` : ""}>${esc(v.kind)}</span></div><div class="c-src src">${src}</div><div class="c-dt dt">${esc(String(v.published || ""))}<span>read ${esc(v.accessed || "")}</span></div></div>`;
   }
   $("#pack-table").innerHTML = s; $("#q-count").textContent = `${hit.length} of ${vals.length}`;
 }
