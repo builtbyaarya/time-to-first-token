@@ -82,6 +82,14 @@ WHO = {
     "National Renewable Energy Laboratory": "NREL, a US Department of Energy laboratory",
     "Encor Advisors": "Encor Advisors, a colocation brokerage",
     "Time to First Token (assumption)": "this study's own assumption",
+    "Hut 8 (press release)": "Hut 8, a developer that builds AI data centers and leases them to tenants",
+    "Hut 8 (press release, PR Newswire)": "Hut 8, a developer that builds AI data centers and leases them to tenants",
+    "Turner & Townsend": "Turner & Townsend, a construction cost consultancy",
+    "Lenovo Press": "Lenovo, a server maker, in its product guide",
+    "Vertiv": "Vertiv, a maker of data center power and cooling equipment",
+    "NVIDIA": "NVIDIA, the GPU maker",
+    "Data Center Dynamics (reporting Hut 8)": "Data Center Dynamics, a trade publication, reporting Hut 8",
+    "StorageReview (reporting NVIDIA)": "StorageReview, a trade publication, reporting NVIDIA",
 }
 
 # ----------------------------------------------------------------------------------------------------------
@@ -414,8 +422,14 @@ def build_tex(R, inp, pdflatex=False):
       + (f"{abs(vs):.0f} months ahead of the {target} target." if vs >= 0.5 else f"{abs(vs):.0f} months after the {target} target." if vs <= -0.5 else f"on the {target} target.")
       + (f" The first token comes from the {Math(R['phaseShare'])} of racks the onsite plant carries; the remaining racks follow utility energization, and full power is {full}." if inp['power'] == 'hybrid' and R['fullPower'] > first + 0.5 else f" Full grid power follows in {full}; until then the site runs on the onsite plant." if onsite and R['fullPower'] > first + 0.5 else f" The remaining racks follow in {full}." if R['fullPower'] > first + 0.5 else ""))
     A(f"The critical path runs through {critical_names}; the longest single item is {tex(longest['label'].lower())} at {longest['months']:.0f} months.")
-    A(f"The facility, land and power works cost {musd(cap['site'][0])} to {musd(cap['site'][1])} before accelerators, built from the 2026 all-in build cost published by Cushman \\& Wakefield, a commercial real estate firm, of \\$8.9 million to \\$23.3 million per MW{C.c('capex_shell_per_mw')} split by its published shares and scaled by the redundancy and cooling factors in Section 7; the {tex(gpu)} racks add {musd(cap['compute'][0])} to {musd(cap['compute'][1])}{C.c('compute_capex_per_mw__' + inp['gpu'])}. "
+    L = R["lease"]
+    A(f"The developer's build cost (land, building, power and cooling) is {musd(cap['site'][0])} to {musd(cap['site'][1])}: construction at the \\$14 to \\$16 per watt that Turner \\& Townsend, a construction cost consultancy, reports for the most advanced US AI facilities{C.c('capex_shell_per_mw')}, plus land, scaled by the redundancy and cooling factors in Section 7. "
+      f"The tenant brings its own {tex(gpu)} racks{C.c('lease_tenant_brings_compute')}, which cost it a further {musd(cap['compute'][0])} to {musd(cap['compute'][1])}{C.c('compute_capex_per_mw__' + inp['gpu'])} and sit outside the build cost. "
       f"Steady-state opex runs {musd(en['opex'][0])} to {musd(en['opex'][1])} a year at a design PUE of {en['pue']:.2f}{C.c('pue__' + inp['cool'])} and {en['waterMgal']:.{0 if en['waterMgal'] >= 1 else 2}f} million gallons of water a year{C.c('wue__' + inp['cool'])}.")
+    A(f"On a {L['termYears']:.0f}-year triple-net lease at the rent Hut 8, a developer that builds AI data centers and leases them, signed at River Bend{C.c('rent_per_mw_year')}, the site earns about {musd(L['rentYear'])} a year, {L['share'] * 100:.1f}\\% of the build cost each year, so every month of delay costs the developer about {musd(L['perMonth'])} of rent."
+      + (f" At the planned date that is {L['lateMonths']:.0f} months late against the target, or about {musd(L['lostVsTarget'])} of rent." if L['lateMonths'] >= 0.5 else ""))
+    for n_ in R.get("inputNotes", []):
+        A(r"\textbf{Input note.} " + tex(n_))
     # recommendation logic
     lev = sorted(R["levers"], key=lambda l: -l["months"])
     best = [l for l in lev if l["months"] >= 1]
@@ -508,7 +522,7 @@ def build_tex(R, inp, pdflatex=False):
         ("IT load", f"{num(mw)} MW critical", "input"),
         ("Accelerator racks", f"{tex(gpu)}, {tex(g['text'])}", C.c('gpu_' + inp['gpu'])),
         ("Rack density", f"{num(inp['density'])} kW per rack, {num(racks)} racks", "input; count derived"),
-        ("Cooling", tex(COOL_LABEL[inp['cool']]) + (f"; air cooling is impractical above {C.val('air_cooling_max_kw_per_rack', unit=False)} kW per rack" if inp['cool'] == 'air' else ""), C.c('air_cooling_max_kw_per_rack')),
+        ("Cooling", tex(COOL_LABEL[inp['cool']]) + (f"; air cooling stops at {C.val('air_cooling_max_kw_per_rack', unit=False)} kW per rack" if inp['cool'] == 'air' else f"; about {R['airSide']['share'] * 100:.0f}\\% of the heat ({R['airSide']['mw']:.0f} MW) still goes to air, taken by about {R['airSide']['units']} fan walls of {R['airSide']['unitKw']:.0f} kW"), C.c('air_cooling_max_kw_per_rack') if inp['cool'] == 'air' else C.c('liquid_air_heat_share') + C.c('fan_wall_unit_kw')),
         ("Design PUE", f"{en['pue']:.2f}", C.c('pue__' + inp['cool'])),
         ("WUE", f"{en['wue']} L per kWh of IT", C.c('wue__' + inp['cool'])),
         ("IT utilization", f"{C.val('it_utilization', 2, unit=False)} of rated", ""),
@@ -546,7 +560,7 @@ def build_tex(R, inp, pdflatex=False):
 
     # ---------------------------------------------------------------- 7 capex and opex
     A(r"\section{Capex and opex}")
-    A(f"Facility capex is built from Cushman \\& Wakefield's 2026 US all-in range of \\$8.9 million to \\$23.3 million per MW excluding accelerators{C.c('capex_shell_per_mw')}, split by its published cost shares, then scaled:")
+    A(f"Construction capex is built from the Turner \\& Townsend 2026-27 range for the most advanced US AI facilities, \\$14 to \\$16 per watt{C.c('capex_shell_per_mw')}, split by Cushman \\& Wakefield's published cost shares; land keeps Cushman \\& Wakefield's 2026 range{C.c('capex_site_per_mw')}. The total is then scaled:")
     A(r"\begin{equation}C_{\mathrm{fac}} = P_{\mathrm{IT}} \sum_i c_i \; f_{\mathrm{red}} \, f_{\mathrm{cool}}\end{equation}")
     A(f"with $P_{{\\mathrm{{IT}}}} = {num(mw)}$ MW, $f_{{\\mathrm{{red}}}} = {cap['redundF']:.2f}$ and $f_{{\\mathrm{{cool}}}} = {cap['coolF']:.3f}$; no metro index is applied, since the pack has none yet. "
       + (f"The 2N factor is one plus the {C.val('ctx_capex_share_power_infra_pct' if 'ctx_capex_share_power_infra_pct' in V else 'capex_electrical_per_mw', unit=False)}\\% power share times the UPS doubling that Schneider reports for 2N{C.c('redundancy_2n_capex_factor')}. " if inp['redund'] != 'n1' else "")
@@ -554,15 +568,15 @@ def build_tex(R, inp, pdflatex=False):
     A(r"\begin{table}[!htb]\caption{Capex, \$ million.}\centering\small\begin{tabular}{@{}lrrl@{}}\toprule Item & Low & High & Source \\\midrule")
     for l in cap["lines"]:
         A(f"{tex(l['label'])} & {num(l['lo'])} & {num(l['hi'])} & {C.c(l['id'])} \\\\")
-    A(f"\\textbf{{Facility, land and power}} & \\textbf{{{num(cap['site'][0])}}} & \\textbf{{{num(cap['site'][1])}}} & \\\\")
-    A(f"{tex(gpu)} racks & {num(cap['compute'][0])} & {num(cap['compute'][1])} & {C.c('compute_capex_per_mw__' + inp['gpu'])} \\\\")
-    A(f"\\textbf{{All-in}} & \\textbf{{{num(cap['total'][0])}}} & \\textbf{{{num(cap['total'][1])}}} & \\\\")
+    A(f"\\textbf{{Build cost, developer}} & \\textbf{{{num(cap['site'][0])}}} & \\textbf{{{num(cap['site'][1])}}} & \\\\")
+    A(f"\\midrule Tenant's cost: {tex(gpu)} racks & {num(cap['compute'][0])} & {num(cap['compute'][1])} & {C.c('compute_capex_per_mw__' + inp['gpu'])} \\\\")
+    A(f"Rent, per year (developer's income) & {num(R['lease']['rentRange'][0])} & {num(R['lease']['rentRange'][1])} & {C.c('rent_per_mw_year')} \\\\")
     A(r"\bottomrule\end{tabular}\end{table}")
     A(f"Costs are rising: all-in build cost is up {C.val('ctx_capex_inflation_since_2024_pct', unit=False)}\\% since late 2024 and switchgear {C.val('ctx_capex_switchgear_price_rise_pct', unit=False)}\\%; JLL's global average is {C.val('ctx_capex_global_avg_per_mw_2026', unit=False)} \\$M per MW with a {C.val('ctx_capex_ai_premium_us_pct', unit=False)}\\% AI premium in the US.")
     A("Electricity is the first line of opex:")
     A(r"\begin{equation}E = P_{\mathrm{IT}} \, u \, \mathrm{PUE} \times 8760\,\mathrm{h}, \qquad \mathrm{Opex}_{\mathrm{elec}} = E \, p\end{equation}")
     A(f"With $u = {en['util']}$, $\\mathrm{{PUE}} = {en['pue']}$ and $p = {en['priceC']:.2f}$ cents per kWh, $E = {en['mwhYear'] / 1000:.0f}$ GWh a year" + (f", of which the grid serves {Math(1 - en['onsiteShare'])}, so the bill is {musd(en['elecGrid'])} and the onsite share burns {musd(en['fuel'])} of gas" if inp['power'] == 'hybrid' else f" and the bill is {musd(en['elecGrid'])}" + (f" at steady state; while on bridge power the plant burns about {musd(en['bridgeFuelYear'])} of gas a year instead" if inp['power'] == 'bridge' else "")) + ". "
-      f"Staff, maintenance and other opex is \\$M {V['opex_staff_maint_per_mw_year']['low']:.1f} to {V['opex_staff_maint_per_mw_year']['high']:.1f} per MW-year{C.c('opex_staff_maint_per_mw_year')} ({note('opex_staff_maint_per_mw_year')}). The utilization and PUE carry published ranges (0.6 to 0.8; 1.15 to 1.35); the electricity line uses the central values.")
+      f"Staff, maintenance and other opex is \\$M {V['opex_staff_maint_per_mw_year']['low']:.1f} to {V['opex_staff_maint_per_mw_year']['high']:.1f} per MW-year{C.c('opex_staff_maint_per_mw_year')} ({note('opex_staff_maint_per_mw_year')}). The utilization and PUE carry published ranges (0.6 to 0.8; PUE {V['pue__' + inp['cool']].get('low', en['pue'])} to {V['pue__' + inp['cool']].get('high', en['pue'])}); the electricity line uses the central values.")
     A(r"\begin{table}[!htb]\caption{Opex, \$ million a year, steady state.}\centering\small\begin{tabular}{@{}lrr@{}}\toprule Item & Low & High \\\midrule")
     A(f"Electricity{', grid share' if en['onsiteShare'] else ''} & {num(en['elecGrid'])} & {num(en['elecGrid'])} \\\\")
     if en["fuel"]:
@@ -576,11 +590,11 @@ def build_tex(R, inp, pdflatex=False):
 
     # ---------------------------------------------------------------- 8 sensitivities
     A(r"\section{Sensitivities}")
-    A("Each line changes one input and re-runs the plan. Months are first token from project start; capex and opex are the midpoints of the ranges." + (f" Air cooling is left out because it is impractical above {V['air_cooling_max_kw_per_rack']['value']:.0f} kW per rack." if inp['density'] > V['air_cooling_max_kw_per_rack']['value'] else ""))
+    A("Each line changes one input and re-runs the plan. Months are first token from project start; capex is the developer's build cost and, with opex, is the midpoint of its range." + ("" if R['rules']['airAllowed'] else f" Air cooling is left out: {tex(R['rules']['reason'])}"))
     A(r"\begin{table}[!htb]\caption{One-at-a-time sensitivities against the base case.}\centering\small\begin{tabular}{@{}lrrr@{}}\toprule Case & First token, months & Capex, \$M mid & Opex, \$M a year mid \\\midrule")
-    A(f"\\textbf{{Base case}} & \\textbf{{{first:.0f}}} & \\textbf{{{num((cap['total'][0] + cap['total'][1]) / 2)}}} & \\textbf{{{num((en['opex'][0] + en['opex'][1]) / 2)}}} \\\\")
+    A(f"\\textbf{{Base case}} & \\textbf{{{first:.0f}}} & \\textbf{{{num((cap['site'][0] + cap['site'][1]) / 2)}}} & \\textbf{{{num((en['opex'][0] + en['opex'][1]) / 2)}}} \\\\")
     for sdef in R["sensitivities"]:
-        if sdef['label'] == 'Cooling: air' and inp['density'] > V['air_cooling_max_kw_per_rack']['value']:
+        if sdef['label'] == 'Cooling: air' and not R['rules']['airAllowed']:
             continue
         lab = sdef['label'].replace('liquid_tower', 'liquid, towers').replace('Cooling: liquid', 'Cooling: liquid, dry coolers').replace('Cooling: liquid, dry coolers, towers', 'Cooling: liquid, towers').replace('Redundancy: n1', 'Redundancy: N+1').replace('Redundancy: 2n', 'Redundancy: 2N').replace('Redundancy: tier4', 'Redundancy: 2N, Tier IV certified').replace('Power: grid', 'Power: grid only').replace('Power: bridge', 'Power: onsite bridge').replace('Power: hybrid', 'Power: hybrid')
         A(f"{tex(lab)} & {sdef['firstToken']:.0f} & {num((sdef['capex'][0] + sdef['capex'][1]) / 2)} & {num((sdef['opex'][0] + sdef['opex'][1]) / 2)} \\\\")

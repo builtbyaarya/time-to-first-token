@@ -53,7 +53,34 @@ export function fmtMonth(ym) {
 // ---------------------------------------------------------------------------------------------------------
 // the plan
 // ---------------------------------------------------------------------------------------------------------
-export function plan(pack, inp) {
+// ---------------------------------------------------------------------------------------------------------
+// input rules from the pack: rack density stays inside the sourced range of the chosen rack, and air cooling
+// is allowed only when the rack is not sold liquid-only and its density is under the sourced air ceiling.
+// Old share links and study requests can carry values outside these rules; they are brought inside, with a note.
+// ---------------------------------------------------------------------------------------------------------
+export function densityRange(pack, gpu) { const g = pack.get(`gpu_${gpu}`); return g ? [g.low ?? g.value, g.high ?? g.value] : [10, 250]; }
+export function coolingRules(pack, inp) {
+  const airMax = pack.v("air_cooling_max_kw_per_rack");
+  const liquidOnly = pack.has(`liquid_only__${inp.gpu}`);
+  const tooDense = inp.density > airMax;
+  const airAllowed = !liquidOnly && !tooDense;
+  const gname = (pack.json.gpus || []).find(g => g.id === inp.gpu)?.name || inp.gpu;
+  const reason = airAllowed ? "" : liquidOnly ? `${gname} racks are sold liquid cooled only by NVIDIA, the GPU maker, and at ${inp.density} kW they are past the ${airMax} kW air ceiling set out by the Uptime Institute, the data center standards body.` : `Air cooling stops at about ${airMax} kW per rack, per the Uptime Institute, the data center standards body; ${inp.density} kW racks need liquid.`;
+  return { airMax, liquidOnly, tooDense, airAllowed, reason };
+}
+export function normalizeInputs(pack, raw) {
+  const inp = { ...raw }; const notes = [];
+  if (!pack.has(`gpu_${inp.gpu}`)) { inp.gpu = (pack.json.gpus || [])[0]?.id || inp.gpu; notes.push("Unknown GPU option; the first one is used."); }
+  const [lo, hi] = densityRange(pack, inp.gpu);
+  const d0 = Number(inp.density);
+  if (!isFinite(d0) || d0 < lo || d0 > hi) { inp.density = !isFinite(d0) ? lo : Math.min(hi, Math.max(lo, d0)); notes.push(`Rack density set to ${inp.density} kW, inside the published ${lo} to ${hi} kW for this rack.`); }
+  const rules = coolingRules(pack, inp);
+  if (inp.cool === "air" && !rules.airAllowed) { inp.cool = "liquid"; notes.push(`Cooling switched from air to liquid with dry coolers: ${rules.reason}`); }
+  return { inp, notes, rules: coolingRules(pack, inp) };
+}
+
+export function plan(pack, rawInp) {
+  const { inp, notes: inputNotes, rules } = normalizeInputs(pack, rawInp);
   const P = pack; const iso = P.get(`iso__${inp.state}`)?.text?.split(" ")[0].split("/")[0] || "US"; const mw = inp.mw;
   const lev = inp.levers || {};
   const onsite = inp.power !== "grid";
@@ -98,6 +125,7 @@ export function plan(pack, inp) {
     genset: P.v("lead_genset_months"),
     chiller: inp.cool === "air" ? P.v("lead_crah_months") : P.v("lead_chiller_months"),
     cdu: inp.cool === "air" ? 0 : P.v("lead_cdu_months"),
+    fanwall: inp.cool === "air" ? 0 : P.v("lead_crah_months"),
   };
   if (inp.redund === "2n" || inp.redund === "tier4") { d.electrical *= P.v("redundancy_2n_electrical_time_factor"); }
   if (inp.redund === "tier4") { d.cx5 += P.v("tier4_cx_extra_months"); }
@@ -142,10 +170,12 @@ export function plan(pack, inp) {
   add("genset", "Standby generators, order and lead time", "electrical", dur("genset"), [["design", 0.5]], { lead: true });
   add("chiller", inp.cool === "air" ? "CRAH units, order and lead time" : "Chillers or dry coolers, order and lead time", "cooling", dur("chiller"), [["design", 0.5]], { lead: true });
   if (d.cdu) add("cdu", "CDUs and loop parts, order and lead time", "cooling", dur("cdu"), [["design", 0.5]], { lead: true });
+  // liquid racks still send part of their heat to air, so a liquid hall also needs fan walls (CRAH) for that share
+  if (d.fanwall) add("fanwall", "Fan walls for the air-side heat, order and lead time", "cooling", dur("fanwall"), [["design", 0.5]], { lead: true });
   add("gpulead", "Accelerator order and allocation", "compute", dur("gpuLead"), [["design", 0.5]], { lead: true });
   // fit-out starts once the shell is weather-tight (about two thirds through), white space once the fit-outs are half done
   add("electrical", "Electrical fit-out: switchgear, UPS, busway", "electrical", dur("electrical"), [["shell", 0.67], "switchgear"]);
-  add("mechanical", inp.cool === "air" ? "Mechanical fit-out: chillers, CRAH" : "Mechanical fit-out: coolers, CDUs, liquid loop", "cooling", dur("mechanical"), [["shell", 0.67], "chiller", ...(d.cdu ? ["cdu"] : [])]);
+  add("mechanical", inp.cool === "air" ? "Mechanical fit-out: chillers, CRAH" : "Mechanical fit-out: coolers, CDUs, liquid loop, fan walls", "cooling", dur("mechanical"), [["shell", 0.67], "chiller", ...(d.cdu ? ["cdu"] : []), ...(d.fanwall ? ["fanwall"] : [])]);
   add("whitespace", "White space: rows, containment, power and liquid drops", "whitespace", dur("whitespace"), [["electrical", 0.5], ["mechanical", 0.5]]);
   add("cx12", "Cx L1 to L2: factory witness and receipt", "commissioning", dur("cx12"), [["switchgear", 0.8], ["chiller", 0.8]]);
   // functional tests need the standby generators set and permitted, so gensets and the air permit gate L3 to L4
@@ -198,10 +228,20 @@ export function plan(pack, inp) {
   const costs = costModel(pack, inp, iso);
   const energy = energyModel(pack, inp);
   const racks = Math.ceil(mw * 1000 / inp.density);
-  const airWarning = inp.cool === "air" && inp.density > P.v("air_cooling_max_kw_per_rack") ? `Air cooling is impractical above ${P.v("air_cooling_max_kw_per_rack")} kW per rack (Uptime); ${inp.density} kW racks need liquid cooling.` : "";
+  const airWarning = ""; // air above the ceiling can no longer be chosen; normalizeInputs switches it and says why
   const targetMonths = monthsBetween(inp.start, inp.target);
-  return { tasks, taskTimes, end, firstToken, fullPower, stageEnd, stageStart, heldStage, iso, d, costs, energy, racks, airWarning, phaseShare,
-    targetMonths, vsTarget: targetMonths - firstToken, liveDate: addMonths(inp.start, firstToken), fullDate: addMonths(inp.start, fullPower) };
+  const vsTarget = targetMonths - firstToken;
+  // air side: an air hall sends all its heat to air; a liquid hall still sends the residual share (fan walls)
+  const airShare = inp.cool === "air" ? 1 : P.v("liquid_air_heat_share");
+  const airShareHi = inp.cool === "air" ? 1 : P.hi("liquid_air_heat_share");
+  const airSide = { share: airShare, shareHi: airShareHi, mw: mw * airShare, mwHi: mw * airShareHi, unitKw: P.v("fan_wall_unit_kw"), units: Math.ceil(mw * airShare * 1000 / P.v("fan_wall_unit_kw")), unitsHi: Math.ceil(mw * airShareHi * 1000 / P.v("fan_wall_unit_kw")) };
+  // landlord view: the developer builds and owns land, building, power and cooling; the tenant signs a triple-net
+  // lease and brings its own GPUs. Rent per MW-year comes from Hut 8's own lease releases.
+  const rentMid = mw * P.v("rent_per_mw_year");
+  const lease = { rentYear: rentMid, rentRange: [mw * P.lo("rent_per_mw_year"), mw * P.hi("rent_per_mw_year")], termYears: P.v("lease_term_years"),
+    build: costs.site, buildMid: mid(costs.site), share: rentMid / mid(costs.site), perMonth: rentMid / 12, lateMonths: Math.max(0, -vsTarget), lostVsTarget: Math.max(0, -vsTarget) * rentMid / 12, tenant: costs.compute };
+  return { tasks, taskTimes, end, firstToken, fullPower, stageEnd, stageStart, heldStage, iso, d, costs, energy, racks, airWarning, phaseShare, airSide, lease,
+    inputs: inp, inputNotes, rules, targetMonths, vsTarget, liveDate: addMonths(inp.start, firstToken), fullDate: addMonths(inp.start, fullPower) };
 }
 
 function slipKey(id) { return { lpt: "lpt", study: "study", zoning: "zoning", genlead: "genLead", gpulead: "gpuLead", utility: "utilityWait", electrical: "electrical" }[id] || id; }
@@ -269,12 +309,14 @@ function onsiteFuel(P, inp, mwhYear, share) {
 // ---------------------------------------------------------------------------------------------------------
 // levers: recompute with one change, report months and $M saved (positive = faster / cheaper)
 // ---------------------------------------------------------------------------------------------------------
-export function levers(pack, inp, base) {
+export function levers(pack, rawInp, base) {
+  const inp = base.inputs || rawInp;
   const out = [];
   const tryIt = (label, desc, change) => {
     const alt = { ...inp, levers: { ...(inp.levers || {}) }, ...change.inp }; if (change.lever) alt.levers[change.lever] = !alt.levers[change.lever];
     let r; try { r = plan(pack, alt); } catch (e) { return; }
-    out.push({ label, desc, months: base.firstToken - r.firstToken, cost: mid(base.costs.total) - mid(r.costs.total), opex: mid(base.energy.opex) - mid(r.energy.opex), change });
+    if (r.inputs.cool !== alt.cool && alt.cool === "air") return; // air not allowed for this rack
+    out.push({ label, desc, months: base.firstToken - r.firstToken, cost: mid(base.costs.site) - mid(r.costs.site), opex: mid(base.energy.opex) - mid(r.energy.opex), rent: (base.firstToken - r.firstToken) * base.lease.perMonth, change });
   };
   tryIt(inp.levers?.lptEarly ? "Reserve transformer slots after the study" : "Reserve transformer slots at project start", "Customer-side units, or a funded reservation of the utility's; at risk of a spec change after the study.", { lever: "lptEarly" });
   if (inp.power === "grid") tryIt("Add onsite bridge power", `Run the first phase on ${genLabel(inp.bridge).toLowerCase()} while the grid connection catches up.`, { inp: { power: "bridge" } });
@@ -292,7 +334,7 @@ export function levers(pack, inp, base) {
   let best = null;
   for (const s of states) { if (s.code === inp.state) continue; let r; try { r = plan(pack, { ...inp, state: s.code }); } catch (e) { continue; }
     if (!best || r.firstToken < best.r.firstToken) best = { s, r }; }
-  if (best && best.r.firstToken < base.firstToken) out.push({ label: `Build in ${best.s.name} instead`, desc: `${best.s.metro}, ${pack.get(`iso__${best.s.code}`)?.text}: the fastest region in the pack for this load.`, months: base.firstToken - best.r.firstToken, cost: mid(base.costs.total) - mid(best.r.costs.total), opex: mid(base.energy.opex) - mid(best.r.energy.opex), change: { inp: { state: best.s.code } } });
+  if (best && best.r.firstToken < base.firstToken) out.push({ label: `Build in ${best.s.name} instead`, desc: `${best.s.metro}, ${pack.get(`iso__${best.s.code}`)?.text}: the fastest region in the pack for this load.`, months: base.firstToken - best.r.firstToken, cost: mid(base.costs.site) - mid(best.r.costs.site), opex: mid(base.energy.opex) - mid(best.r.energy.opex), rent: (base.firstToken - best.r.firstToken) * base.lease.perMonth, change: { inp: { state: best.s.code } } });
   return out.sort((a, b) => b.months - a.months);
 }
 export function mid(r) { return (r[0] + r[1]) / 2; }
@@ -309,7 +351,8 @@ export const STRESSES = [
   { id: "gpu", label: "GPU allocation delay", desc: "The accelerator order ships later than quoted." },
   { id: "labour", label: "Labour shortage", desc: "Electrical and structural crews are short; those tasks run long." },
 ];
-export function risks(pack, inp, base) {
+export function risks(pack, rawInp, base) {
+  const inp = base.inputs || rawInp;
   const out = [];
   for (const s of STRESSES) {
     if (s.onsiteOnly && inp.power === "grid") continue;
@@ -328,6 +371,7 @@ export function risks(pack, inp, base) {
 export function exportRows(pack, inp, r) {
   const rows = [];
   rows.push(["section", "key", "value", "low", "high", "unit", "kind", "source", "url"]);
+  inp = r.inputs || inp;
   for (const [k, v] of Object.entries(inp)) if (k !== "levers" && k !== "stress") rows.push(["input", k, v, "", "", "", "", "", ""]);
   rows.push(["input", "levers", JSON.stringify(inp.levers || {}), "", "", "", "", "", ""]);
   rows.push(["input", "stress", inp.stress || "", "", "", "", "", "", ""]);
@@ -335,6 +379,12 @@ export function exportRows(pack, inp, r) {
   rows.push(["result", "first_token_date", r.liveDate, "", "", "month", "derived", "", ""]);
   rows.push(["result", "full_power_date", r.fullDate, "", "", "month", "derived", "", ""]);
   rows.push(["result", "capex_total_musd", mid(r.costs.total).toFixed(0), r.costs.total[0].toFixed(0), r.costs.total[1].toFixed(0), "USD million", "derived", "", ""]);
+  rows.push(["result", "build_cost_developer_musd", mid(r.costs.site).toFixed(0), r.costs.site[0].toFixed(0), r.costs.site[1].toFixed(0), "USD million (land, building, power, cooling)", "derived", "", ""]);
+  rows.push(["result", "tenant_gpu_cost_musd", mid(r.costs.compute).toFixed(0), r.costs.compute[0].toFixed(0), r.costs.compute[1].toFixed(0), "USD million (paid by the tenant)", "derived", "", ""]);
+  rows.push(["result", "rent_musd_per_year", r.lease.rentYear.toFixed(0), r.lease.rentRange[0].toFixed(0), r.lease.rentRange[1].toFixed(0), "USD million per year, triple net", "derived", "", ""]);
+  rows.push(["result", "rent_share_of_build_cost", r.lease.share.toFixed(3), "", "", "ratio per year", "derived", "", ""]);
+  rows.push(["result", "rent_lost_per_month_of_delay_musd", r.lease.perMonth.toFixed(1), "", "", "USD million", "derived", "", ""]);
+  rows.push(["result", "air_side_heat_mw", r.airSide.mw.toFixed(1), "", r.airSide.mwHi.toFixed(1), "MW", "derived", "", ""]);
   rows.push(["result", "capex_facility_musd", mid(r.costs.facility).toFixed(0), r.costs.facility[0].toFixed(0), r.costs.facility[1].toFixed(0), "USD million", "derived", "", ""]);
   rows.push(["result", "opex_musd_per_year", mid(r.energy.opex).toFixed(0), r.energy.opex[0].toFixed(0), r.energy.opex[1].toFixed(0), "USD million per year, steady state", "derived", "", ""]);
   if (r.energy.bridgeFuelYear) rows.push(["result", "bridge_fuel_musd_first_year", r.energy.bridgeFuelYear.toFixed(0), "", "", "USD million, while on bridge power", "derived", "", ""]);
