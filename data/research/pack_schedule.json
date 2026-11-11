@@ -1160,7 +1160,7 @@
     },
     {
       "id": "delay_driver_equipment_pct",
-      "label": "Capital project delay driver: manufacturing/equipment delays (2025)",
+      "label": "Capital project delay cause: manufacturing/equipment delays (2025)",
       "category": "risk",
       "value": 42,
       "unit": "percent of delayed projects",
@@ -1172,11 +1172,11 @@
       "published": "2025-12",
       "accessed": "2026-10-24",
       "quote": "Manufacturing/equipment delays: 46% → 42%",
-      "note": "2024 to 2025, n=170 in 2025. Other drivers 2025: capital availability 35%, physical infrastructure changes 34%, power availability 25%, legislation/tax incl. permitting 20%."
+      "note": "2024 to 2025, n=170 in 2025. Other causes 2025: capital availability 35%, physical infrastructure changes 34%, power availability 25%, legislation/tax incl. permitting 20%."
     },
     {
       "id": "delay_driver_power_availability_pct",
-      "label": "Capital project delay driver: power availability (2025)",
+      "label": "Capital project delay cause: power availability (2025)",
       "category": "risk",
       "value": 25,
       "unit": "percent of delayed projects",
@@ -1192,7 +1192,7 @@
     },
     {
       "id": "delay_driver_permitting_legislation_pct",
-      "label": "Capital project delay driver: legislation/tax incl. permitting (2025)",
+      "label": "Capital project delay cause: legislation/tax incl. permitting (2025)",
       "category": "risk",
       "value": 20,
       "unit": "percent of delayed projects",
@@ -1204,7 +1204,7 @@
       "published": "2025-12",
       "accessed": "2026-10-24",
       "quote": "Legislation/tax issues (e.g., permitting): 13% → 20%",
-      "note": "Fastest-growing driver 2024 to 2025."
+      "note": "Fastest-growing cause 2024 to 2025."
     },
     {
       "id": "delay_pipeline_share_slipping_2026",

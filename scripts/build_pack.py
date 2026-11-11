@@ -17,11 +17,13 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 RES = ROOT / "data" / "research"
-VERSION = "2026.10.24"
-ACCESSED = "2026-10-24"
+VERSION = "2026.11.11"
+ACCESSED = "2026-10-24"     # read date of the values first collected on 24 Oct 2026
+ACCESSED_RUNA = "2026-11-11"  # read date of the lease, cooling and construction-cost values added on 11 Nov 2026
+FIRST_VERSION = "2026.10.24"
 
 research = {}
-for f in ["pack_power.json", "pack_schedule.json", "pack_cost.json"]:
+for f in ["pack_power.json", "pack_schedule.json", "pack_cost.json", "pack_lease_cooling.json"]:
     for v in json.load(open(RES / f))["values"]:
         research[v["id"]] = v
 
@@ -53,7 +55,7 @@ def put(id, label, category, value, unit, kind, scope="US", from_ids=(), low=Non
         if len(from_ids) > 1:
             d["also_from"] = [src(x)["source_url"] for x in from_ids[1:]]
     else:
-        d.update({"source_title": "", "source_url": "", "publisher": "Time to First Token (assumption)", "published": VERSION, "accessed": ACCESSED, "quote": ""})
+        d.update({"source_title": "", "source_url": "", "publisher": "Time to First Token (assumption)", "published": FIRST_VERSION, "accessed": ACCESSED, "quote": ""})
     d["note"] = note
     d.update(over)
     OUT.append(d)
@@ -200,13 +202,13 @@ late = src("delay_share_projects_late_3mo_2025")["value"] / 100
 eq = src("delay_driver_equipment_pct")["value"] / 100; pw = src("delay_driver_power_availability_pct")["value"] / 100; pm = src("delay_driver_permitting_legislation_pct")["value"] / 100
 def lk(id, label, val, ids, note, text):
     put(f"risk_{id}_likelihood", label, "risk", round(val, 2), "probability", "derived", "US", ids, text=text, note=note)
-lk("transformer", "Likelihood, transformer slip", late * eq, ("delay_share_projects_late_3mo_2025", "delay_driver_equipment_pct"), "57% of projects late (JLL) x 42% of delays driven by equipment (Uptime).", "24%: 57% of projects late x 42% equipment-driven")
-lk("interconnection", "Likelihood, interconnection delay", late * pw, ("delay_share_projects_late_3mo_2025", "delay_driver_power_availability_pct"), "57% late x 25% power-availability driven.", "14%: 57% late x 25% power-driven")
-lk("utility", "Likelihood, utility delay", late * pw, ("delay_share_projects_late_3mo_2025", "delay_driver_power_availability_pct"), "57% late x 25% power-availability driven.", "14%: 57% late x 25% power-driven")
-lk("permit", "Likelihood, permit challenge", late * pm, ("delay_share_projects_late_3mo_2025", "delay_driver_permitting_legislation_pct"), "57% late x 20% permitting-driven.", "11%: 57% late x 20% permitting-driven")
-lk("turbine", "Likelihood, turbine slip", late * eq, ("delay_share_projects_late_3mo_2025", "delay_driver_equipment_pct"), "57% late x 42% equipment-driven.", "24%: 57% late x 42% equipment-driven")
-lk("gpu", "Likelihood, GPU delay", late * eq, ("delay_share_projects_late_3mo_2025", "delay_driver_equipment_pct"), "57% late x 42% equipment-driven; the best public proxy.", "24%: equipment-driven delay share")
-put("risk_labour_likelihood", "Likelihood, labour shortage", "risk", src("opex_staff_hiring_difficulty_pct")["value"] / 100, "probability", "sourced", "US", ("opex_staff_hiring_difficulty_pct",), text="46%: share of operators reporting difficulty hiring (Uptime)", note="Share of operators reporting difficulty finding staff, used as the likelihood of a labour-driven slip.")
+lk("transformer", "Likelihood, transformer slip", late * eq, ("delay_share_projects_late_3mo_2025", "delay_driver_equipment_pct"), "57% of projects late (JLL) x 42% of delays caused by equipment (Uptime).", "24%: 57% of projects late x 42% caused by equipment")
+lk("interconnection", "Likelihood, interconnection delay", late * pw, ("delay_share_projects_late_3mo_2025", "delay_driver_power_availability_pct"), "57% late x 25% caused by power availability.", "14%: 57% late x 25% caused by power")
+lk("utility", "Likelihood, utility delay", late * pw, ("delay_share_projects_late_3mo_2025", "delay_driver_power_availability_pct"), "57% late x 25% caused by power availability.", "14%: 57% late x 25% caused by power")
+lk("permit", "Likelihood, permit challenge", late * pm, ("delay_share_projects_late_3mo_2025", "delay_driver_permitting_legislation_pct"), "57% late x 20% caused by permitting.", "11%: 57% late x 20% caused by permitting")
+lk("turbine", "Likelihood, turbine slip", late * eq, ("delay_share_projects_late_3mo_2025", "delay_driver_equipment_pct"), "57% late x 42% caused by equipment.", "24%: 57% late x 42% caused by equipment")
+lk("gpu", "Likelihood, GPU delay", late * eq, ("delay_share_projects_late_3mo_2025", "delay_driver_equipment_pct"), "57% late x 42% caused by equipment; the best public proxy.", "24%: share of delays caused by equipment")
+put("risk_labour_likelihood", "Likelihood, labour shortage", "risk", src("opex_staff_hiring_difficulty_pct")["value"] / 100, "probability", "sourced", "US", ("opex_staff_hiring_difficulty_pct",), text="46%: share of operators reporting difficulty hiring (Uptime)", note="Share of operators reporting difficulty finding staff, used as the likelihood of a slip caused by labour.")
 MIT = {
     "transformer": "Order at project start, buy a reserved slot, or design around smaller units in parallel.",
     "interconnection": "File in the earliest batch, pay the security early, and keep the load profile flexible.",
@@ -223,13 +225,16 @@ for k, t in MIT.items():
 # capex
 # ---------------------------------------------------------------------------------------------------------
 tot = src("capex_total_per_mw_us")
-shares = [("capex_site_per_mw", "Site and land", "capex_share_site_acq_pct"), ("capex_shell_per_mw", "Shell and core", "capex_share_core_shell_pct"),
-          ("capex_electrical_per_mw", "Power infrastructure", "capex_share_power_infra_pct"), ("capex_contingency_per_mw", "Contingency", "capex_share_contingency_pct")]
-rest = 100 - sum(src(s)["value"] for _, _, s in shares)
-for id, label, s in shares:
-    sh = src(s)["value"] / 100
-    put(id, f"{label}, per MW", "capex", round(tot["value"] * sh, 2), "USD million per MW IT", "derived", "US", ("capex_total_per_mw_us", s), round(tot["low"] * sh, 2), round(tot["high"] * sh, 2), note=f"{src(s)['value']}% of the Cushman & Wakefield 2026 all-in build cost of $8.9M to $23.3M per MW (excluding GPUs).")
-put("capex_mechanical_per_mw", "Mechanical, fit-out and fees, per MW", "capex", round(tot["value"] * rest / 100, 2), "USD million per MW IT", "derived", "US", ("capex_total_per_mw_us", "capex_share_core_shell_pct"), round(tot["low"] * rest / 100, 2), round(tot["high"] * rest / 100, 2), note=f"The remaining {rest}% of the all-in cost after site, shell, power and contingency: mechanical, fit-out, fees and other.")
+tt = src("capex_ai_construction_usd_per_w")  # $/W = $M per MW
+site_sh = src("capex_share_site_acq_pct")["value"]
+put("capex_site_per_mw", "Site and land, per MW", "capex", round(tot["value"] * site_sh / 100, 2), "USD million per MW IT", "derived", "US", ("capex_total_per_mw_us", "capex_share_site_acq_pct"), round(tot["low"] * site_sh / 100, 2), round(tot["high"] * site_sh / 100, 2), note=f"{site_sh}% of the Cushman & Wakefield 2026 all-in build cost of $8.9M to $23.3M per MW (excluding GPUs). Land is outside the Turner & Townsend construction index, so this line keeps the wider Cushman & Wakefield range.")
+shares = [("capex_shell_per_mw", "Shell and core", "capex_share_core_shell_pct"), ("capex_electrical_per_mw", "Power infrastructure", "capex_share_power_infra_pct"), ("capex_contingency_per_mw", "Contingency", "capex_share_contingency_pct")]
+constr = 100 - site_sh
+rest = constr - sum(src(s_)["value"] for _, _, s_ in shares)
+for id, label, s_ in shares:
+    sh = src(s_)["value"] / constr
+    put(id, f"{label}, per MW", "capex", round(tt["value"] * sh, 2), "USD million per MW IT", "derived", "US", ("capex_ai_construction_usd_per_w", s_, "capex_total_per_mw_us"), round(tt["low"] * sh, 2), round(tt["high"] * sh, 2), note=f"Turner & Townsend 2026-27: the most advanced US AI facilities cost $14 to $16 per watt to build (newer and tighter than the Cushman & Wakefield 2026 range of $8.9M to $23.3M per MW, which it replaces for construction). Split by Cushman & Wakefield's cost shares: {src(s_)['value']}% of the all-in cost, or {round(sh * 100, 1)}% of the construction part.")
+put("capex_mechanical_per_mw", "Mechanical, fit-out and fees, per MW", "capex", round(tt["value"] * rest / constr, 2), "USD million per MW IT", "derived", "US", ("capex_ai_construction_usd_per_w", "capex_total_per_mw_us"), round(tt["low"] * rest / constr, 2), round(tt["high"] * rest / constr, 2), note=f"The remaining {round(rest / constr * 100, 1)}% of the Turner & Townsend construction cost ($14 to $16 per watt) after shell, power and contingency: mechanical, fit-out, fees and other.")
 CAPEX_LINES = [{"id": "capex_site_per_mw", "label": "Site and land"}, {"id": "capex_shell_per_mw", "label": "Shell and core"}, {"id": "capex_electrical_per_mw", "label": "Power infrastructure"}, {"id": "capex_mechanical_per_mw", "label": "Mechanical, fit-out and fees"}, {"id": "capex_contingency_per_mw", "label": "Contingency"}]
 lp = src("capex_liquid_cooling_premium_per_mw")
 put("capex_air_cooling_factor", "Capex factor, air cooling", "capex", round((tot["value"] - lp["value"]) / tot["value"], 3), "ratio", "derived", "US", ("capex_liquid_cooling_premium_per_mw", "capex_total_per_mw_us"), note="JLL: liquid cooling adds $1M to $2M per MW. (16.1 - 1.5) / 16.1.")
@@ -268,20 +273,42 @@ put("air_cooling_max_kw_per_rack", "Air cooling practical ceiling", "cooling", s
 # ---------------------------------------------------------------------------------------------------------
 # PUE, WUE, utilization, opex
 # ---------------------------------------------------------------------------------------------------------
-v = src("pue_us_average_2028")
-put("pue__liquid", "Design PUE, liquid cooling with dry coolers", "energy", v["value"], "ratio", "sourced", "US", ("pue_us_average_2028",), v["low"], v["high"], note="LBNL's 2028 projection for new US capacity (1.15 to 1.35); dry coolers sit at the upper end of hyperscale practice.")
-put("pue__liquid_tower", "Design PUE, liquid cooling with towers", "energy", src("pue_hyperscale_aws_2025")["value"], "ratio", "sourced", "Global", ("pue_hyperscale_aws_2025", "pue_hyperscale_google_2025"), src("pue_hyperscale_google_2025")["value"], src("pue_hyperscale_aws_2025")["value"], note="A fleet proxy: evaporative cooling as run by AWS (1.14) and Google (1.09); the AWS fleet figure is used.")
-put("pue__air", "Design PUE, air cooling", "energy", src("pue_large_20mw_plus")["value"], "ratio", "sourced", "Global", ("pue_large_20mw_plus", "pue_industry_avg_2025"), note="Uptime 2025 survey, sites of 20 MW and above (1.44); industry average 1.54.")
-v = src("wue_hyperscale_range_lbnl")
-put("wue__liquid", "WUE, liquid cooling with dry coolers", "energy", v["low"], "L per kWh IT", "sourced", "US", ("wue_hyperscale_range_lbnl", "wue_aws_2025"), note="Low end of LBNL's hyperscale range (0.1 L/kWh): a closed loop with dry coolers consumes little water beyond make-up.")
-v2 = src("wue_us_average_2028_l_per_kwh")
-put("wue__liquid_tower", "WUE, liquid cooling with towers", "energy", v2["value"], "L per kWh IT", "sourced", "US", ("wue_us_average_2028_l_per_kwh",), v2["low"], v2["high"], note="LBNL's 2028 projection for the US fleet (0.45 to 0.48 L/kWh), which it attributes to the shift to liquid cooling with evaporative heat rejection; a fleet proxy for tower cooling.")
-put("wue__air", "WUE, air cooling", "energy", src("wue_us_national_2023_lbnl")["value"], "L per kWh IT", "sourced", "US", ("wue_us_national_2023_lbnl",), note="LBNL US fleet average for 2023, a fleet of mostly air-cooled halls; air-cooled chillers themselves use no water, so this is a fleet proxy that includes evaporative heat rejection.")
+def lb(rid): return src(rid)
+for cool, label, p_id, w_id in [("liquid", "liquid cooling with dry coolers", "pue_lbnl_liquid_drycooler", "wue_lbnl_liquid_drycooler"), ("liquid_tower", "liquid cooling with cooling towers", "pue_lbnl_liquid_tower", "wue_lbnl_liquid_tower"), ("air", "air cooling on air-cooled chillers", "pue_lbnl_air_chiller_drycooler", "wue_lbnl_air_chiller_drycooler")]:
+    p_, w_ = lb(p_id), lb(w_id)
+    put(f"pue__{cool}", f"Design PUE, {label}", "energy", p_["value"], "ratio", "sourced", "US", (p_id,), p_.get("low"), p_.get("high"), note=p_["note"])
+    put(f"wue__{cool}", f"WUE, {label}", "energy", w_["value"], "L per kWh IT", "sourced", "US", (w_id,), w_.get("low"), w_.get("high"), note=w_["note"])
 v = src("server_h100_operating_fraction")
 put("it_utilization", "Average IT power as a share of rated", "energy", v["value"], "ratio", "sourced", "US", ("server_h100_operating_fraction",), v["low"], v["high"], note="LBNL: AI servers run at 60 to 80% of rated power on average.")
 colo = src("opex_colocation_rate_kw_month")["value"] * 1000 * 12 / 1e6
 elec12 = src("opex_electricity_per_mw_year_pue12")["value"]
 put("opex_staff_maint_per_mw_year", "Staff, maintenance and other opex per MW-year", "opex", round(colo - elec12, 2), "USD million per MW IT per year", "derived", "US", ("opex_colocation_rate_kw_month", "opex_electricity_per_mw_year_pue12"), round((colo - elec12) * 0.5, 2), round(colo - elec12, 2), note="Colocation all-in rate $196/kW/month = $2.35M per MW-year, less electricity at PUE 1.2 ($0.95M): an upper bound that includes the operator's margin. The low end is half of that, our assumption.")
+
+# ---------------------------------------------------------------------------------------------------------
+# landlord view: rent from Hut 8's own releases (added 11 Nov 2026)
+# ---------------------------------------------------------------------------------------------------------
+rb, rbmw, yrs = src("lease_river_bend_contract_busd"), src("lease_river_bend_it_mw"), src("lease_term_years")
+bp, bpmw = src("lease_beacon_point_contract_busd"), src("lease_beacon_point_it_mw")
+r_rb = rb["value"] * 1000 / yrs["value"] / rbmw["value"]; r_bp = bp["value"] * 1000 / yrs["value"] / bpmw["value"]
+put("rent_per_mw_year", "Rent per MW of IT per year, triple-net AI lease", "lease", round(r_rb, 3), "USD million per MW IT per year", "derived", "US", ("lease_river_bend_contract_busd", "lease_beacon_point_contract_busd"), round(min(r_rb, r_bp), 3), round(max(r_rb, r_bp), 3), note=f"Hut 8, River Bend: $7.0B over 15 years for 245 MW = ${r_rb:.3f}M per MW-year (average over the term, 3% escalator included). Beacon Point: $9.8B over 15 years for 352 MW = ${r_bp:.3f}M, the low end.")
+put("lease_term_years", "Lease base term", "lease", yrs["value"], "years", "sourced", "US", ("lease_term_years",), note=yrs["note"])
+fin = src("river_bend_build_financing_busd")
+put("check_river_bend_build_busd", "River Bend build cost, upper bound (check case)", "lease", fin["value"], "USD billion", "sourced", "LA", ("river_bend_build_financing_busd",), note=fin["note"])
+put("check_river_bend_rent_busd_year", "River Bend average rent per year (check case)", "lease", round(rb["value"] / yrs["value"], 3), "USD billion per year", "derived", "LA", ("lease_river_bend_contract_busd",), note="$7.0B / 15 years.")
+put("check_river_bend_rent_share", "River Bend rent per year as a share of build cost (check case)", "lease", round(rb["value"] / yrs["value"] / fin["value"], 3), "ratio", "derived", "LA", ("lease_river_bend_contract_busd", "river_bend_build_financing_busd"), note="$0.467B a year / $3.25B = 14.4% a year. The $3.25B also covers reserves and a $184M equity return, so the true share is a little higher.")
+tb = src("lease_tenant_brings_compute")
+put("lease_tenant_brings_compute", tb["label"], "lease", 0, "", "sourced", "US", ("lease_tenant_brings_compute",), text=tb["text"], note=tb["note"])
+
+# ---------------------------------------------------------------------------------------------------------
+# rack density sets the cooling (added 11 Nov 2026)
+# ---------------------------------------------------------------------------------------------------------
+for g, rid in [("gb200", "nvidia_gb200_liquid_only"), ("gb300", "nvidia_gb300_liquid_only"), ("rubin", "nvidia_rubin_liquid_only")]:
+    r_ = src(rid)
+    put(f"liquid_only__{g}", f"Sold liquid cooled only, {dict((i, n) for i, n, _, _ in GPUS)[g]}", "cooling", 1, "flag", "sourced", "Global", (rid,), text=r_["text"], note=r_["note"])
+v = src("liquid_rack_air_heat_share")
+put("liquid_air_heat_share", "Heat a liquid-cooled rack still sends to air", "cooling", v["value"], "ratio", "sourced", "Global", ("liquid_rack_air_heat_share", "vertiv_gb300_cooling_split_air"), v["low"], v["high"], note=v["note"])
+v = src("fan_wall_unit_kw")
+put("fan_wall_unit_kw", "Fan wall capacity per unit", "cooling", v["value"], "kW per unit", "sourced", "Global", ("fan_wall_unit_kw",), note=v["note"])
 
 # ---------------------------------------------------------------------------------------------------------
 # context values carried through for the report (not used in arithmetic)
@@ -293,7 +320,7 @@ for rid in CTX:
     IDS.add(v["id"]); OUT.append(v)
 
 pack = {
-    "version": VERSION, "accessed": ACCESSED,
+    "version": VERSION, "accessed": ACCESSED_RUNA,
     "about": "Data pack for Time to First Token. Every value carries its source. kind = sourced (read off the page), derived (arithmetic on sourced values, see note) or assumption (ours, no public figure). Licence CC BY 4.0.",
     "defaults": {"state": "TX", "mw": 100, "gpu": "gb200", "density": 120, "start": "2026-11", "target": "2028-06"},
     "states": [{"code": c, "name": n, "metro": m, "note": note} for c, n, m, iso, note in STATES],

@@ -1,6 +1,6 @@
 {
- "version": "2026.10.24",
- "accessed": "2026-10-24",
+ "version": "2026.11.11",
+ "accessed": "2026-11-11",
  "about": "Data pack for Time to First Token. Every value carries its source. kind = sourced (read off the page), derived (arithmetic on sourced values, see note) or assumption (ours, no public figure). Licence CC BY 4.0.",
  "defaults": {
   "state": "TX",
@@ -1883,7 +1883,7 @@
    "unit": "probability",
    "kind": "derived",
    "scope": "US",
-   "text": "24%: 57% of projects late x 42% equipment-driven",
+   "text": "24%: 57% of projects late x 42% caused by equipment",
    "source_title": "Three major risks slowing the $3T data center boom",
    "source_url": "https://www.latitudemedia.com/news/three-major-risks-slowing-the-3t-data-center-boom/",
    "publisher": "Latitude Media (citing JLL 2026 Global Data Center Outlook)",
@@ -1893,7 +1893,7 @@
    "also_from": [
     "https://intelligence.uptimeinstitute.com/sites/default/files/2025-12/UI%20Field%20189_Supply%20chains%20show%20signs%20of%20stability.pdf"
    ],
-   "note": "57% of projects late (JLL) x 42% of delays driven by equipment (Uptime)."
+   "note": "57% of projects late (JLL) x 42% of delays caused by equipment (Uptime)."
   },
   {
    "id": "risk_interconnection_likelihood",
@@ -1903,7 +1903,7 @@
    "unit": "probability",
    "kind": "derived",
    "scope": "US",
-   "text": "14%: 57% late x 25% power-driven",
+   "text": "14%: 57% late x 25% caused by power",
    "source_title": "Three major risks slowing the $3T data center boom",
    "source_url": "https://www.latitudemedia.com/news/three-major-risks-slowing-the-3t-data-center-boom/",
    "publisher": "Latitude Media (citing JLL 2026 Global Data Center Outlook)",
@@ -1913,7 +1913,7 @@
    "also_from": [
     "https://intelligence.uptimeinstitute.com/sites/default/files/2025-12/UI%20Field%20189_Supply%20chains%20show%20signs%20of%20stability.pdf"
    ],
-   "note": "57% late x 25% power-availability driven."
+   "note": "57% late x 25% caused by power availability."
   },
   {
    "id": "risk_utility_likelihood",
@@ -1923,7 +1923,7 @@
    "unit": "probability",
    "kind": "derived",
    "scope": "US",
-   "text": "14%: 57% late x 25% power-driven",
+   "text": "14%: 57% late x 25% caused by power",
    "source_title": "Three major risks slowing the $3T data center boom",
    "source_url": "https://www.latitudemedia.com/news/three-major-risks-slowing-the-3t-data-center-boom/",
    "publisher": "Latitude Media (citing JLL 2026 Global Data Center Outlook)",
@@ -1933,7 +1933,7 @@
    "also_from": [
     "https://intelligence.uptimeinstitute.com/sites/default/files/2025-12/UI%20Field%20189_Supply%20chains%20show%20signs%20of%20stability.pdf"
    ],
-   "note": "57% late x 25% power-availability driven."
+   "note": "57% late x 25% caused by power availability."
   },
   {
    "id": "risk_permit_likelihood",
@@ -1943,7 +1943,7 @@
    "unit": "probability",
    "kind": "derived",
    "scope": "US",
-   "text": "11%: 57% late x 20% permitting-driven",
+   "text": "11%: 57% late x 20% caused by permitting",
    "source_title": "Three major risks slowing the $3T data center boom",
    "source_url": "https://www.latitudemedia.com/news/three-major-risks-slowing-the-3t-data-center-boom/",
    "publisher": "Latitude Media (citing JLL 2026 Global Data Center Outlook)",
@@ -1953,7 +1953,7 @@
    "also_from": [
     "https://intelligence.uptimeinstitute.com/sites/default/files/2025-12/UI%20Field%20189_Supply%20chains%20show%20signs%20of%20stability.pdf"
    ],
-   "note": "57% late x 20% permitting-driven."
+   "note": "57% late x 20% caused by permitting."
   },
   {
    "id": "risk_turbine_likelihood",
@@ -1963,7 +1963,7 @@
    "unit": "probability",
    "kind": "derived",
    "scope": "US",
-   "text": "24%: 57% late x 42% equipment-driven",
+   "text": "24%: 57% late x 42% caused by equipment",
    "source_title": "Three major risks slowing the $3T data center boom",
    "source_url": "https://www.latitudemedia.com/news/three-major-risks-slowing-the-3t-data-center-boom/",
    "publisher": "Latitude Media (citing JLL 2026 Global Data Center Outlook)",
@@ -1973,7 +1973,7 @@
    "also_from": [
     "https://intelligence.uptimeinstitute.com/sites/default/files/2025-12/UI%20Field%20189_Supply%20chains%20show%20signs%20of%20stability.pdf"
    ],
-   "note": "57% late x 42% equipment-driven."
+   "note": "57% late x 42% caused by equipment."
   },
   {
    "id": "risk_gpu_likelihood",
@@ -1983,7 +1983,7 @@
    "unit": "probability",
    "kind": "derived",
    "scope": "US",
-   "text": "24%: equipment-driven delay share",
+   "text": "24%: share of delays caused by equipment",
    "source_title": "Three major risks slowing the $3T data center boom",
    "source_url": "https://www.latitudemedia.com/news/three-major-risks-slowing-the-3t-data-center-boom/",
    "publisher": "Latitude Media (citing JLL 2026 Global Data Center Outlook)",
@@ -1993,7 +1993,7 @@
    "also_from": [
     "https://intelligence.uptimeinstitute.com/sites/default/files/2025-12/UI%20Field%20189_Supply%20chains%20show%20signs%20of%20stability.pdf"
    ],
-   "note": "57% late x 42% equipment-driven; the best public proxy."
+   "note": "57% late x 42% caused by equipment; the best public proxy."
   },
   {
    "id": "risk_labour_likelihood",
@@ -2010,7 +2010,7 @@
    "published": "2025-07",
    "accessed": "2026-10-24",
    "quote": "46% report difficulty finding qualified candidates for open roles.",
-   "note": "Share of operators reporting difficulty finding staff, used as the likelihood of a labour-driven slip."
+   "note": "Share of operators reporting difficulty finding staff, used as the likelihood of a slip caused by labour."
   },
   {
    "id": "risk_transformer_mitigation",
@@ -2150,7 +2150,7 @@
    "also_from": [
     "https://www.credaily.com/briefs/data-center-construction-costs-jump-21-since-2024/"
    ],
-   "note": "7% of the Cushman & Wakefield 2026 all-in build cost of $8.9M to $23.3M per MW (excluding GPUs)."
+   "note": "7% of the Cushman & Wakefield 2026 all-in build cost of $8.9M to $23.3M per MW (excluding GPUs). Land is outside the Turner & Townsend construction index, so this line keeps the wider Cushman & Wakefield range."
   },
   {
    "id": "capex_shell_per_mw",
@@ -2160,39 +2160,41 @@
    "unit": "USD million per MW IT",
    "kind": "derived",
    "scope": "US",
-   "low": 1.51,
-   "high": 3.96,
-   "source_title": "Data Center Construction Costs Jump 21% Since 2024 (reporting Cushman & Wakefield 2026 Data Center Development Cost Guide)",
-   "source_url": "https://www.credaily.com/briefs/data-center-construction-costs-jump-21-since-2024/",
-   "publisher": "CRE Daily (citing Cushman & Wakefield)",
-   "published": "2026-08-27",
-   "accessed": "2026-10-24",
-   "quote": "All-in greenfield costs now run from $8.9M to $23.3M per MW",
+   "low": 2.56,
+   "high": 2.92,
+   "source_title": "Data centre construction cost index 2026-27",
+   "source_url": "https://www.turnerandtownsend.com/insights/data-centre-construction-cost-index-2026-27/",
+   "publisher": "Turner & Townsend",
+   "published": "2026-10",
+   "accessed": "2026-11-11",
+   "quote": "between US$14.00 and US$16.00",
    "also_from": [
+    "https://www.credaily.com/briefs/data-center-construction-costs-jump-21-since-2024/",
     "https://www.credaily.com/briefs/data-center-construction-costs-jump-21-since-2024/"
    ],
-   "note": "17% of the Cushman & Wakefield 2026 all-in build cost of $8.9M to $23.3M per MW (excluding GPUs)."
+   "note": "Turner & Townsend 2026-27: the most advanced US AI facilities cost $14 to $16 per watt to build (newer and tighter than the Cushman & Wakefield 2026 range of $8.9M to $23.3M per MW, which it replaces for construction). Split by Cushman & Wakefield's cost shares: 17% of the all-in cost, or 18.3% of the construction part."
   },
   {
    "id": "capex_electrical_per_mw",
    "label": "Power infrastructure, per MW",
    "category": "capex",
-   "value": 3.38,
+   "value": 3.39,
    "unit": "USD million per MW IT",
    "kind": "derived",
    "scope": "US",
-   "low": 1.87,
-   "high": 4.89,
-   "source_title": "Data Center Construction Costs Jump 21% Since 2024 (reporting Cushman & Wakefield 2026 Data Center Development Cost Guide)",
-   "source_url": "https://www.credaily.com/briefs/data-center-construction-costs-jump-21-since-2024/",
-   "publisher": "CRE Daily (citing Cushman & Wakefield)",
-   "published": "2026-08-27",
-   "accessed": "2026-10-24",
-   "quote": "All-in greenfield costs now run from $8.9M to $23.3M per MW",
+   "low": 3.16,
+   "high": 3.61,
+   "source_title": "Data centre construction cost index 2026-27",
+   "source_url": "https://www.turnerandtownsend.com/insights/data-centre-construction-cost-index-2026-27/",
+   "publisher": "Turner & Townsend",
+   "published": "2026-10",
+   "accessed": "2026-11-11",
+   "quote": "between US$14.00 and US$16.00",
    "also_from": [
+    "https://www.credaily.com/briefs/data-center-construction-costs-jump-21-since-2024/",
     "https://www.credaily.com/briefs/data-center-construction-costs-jump-21-since-2024/"
    ],
-   "note": "21% of the Cushman & Wakefield 2026 all-in build cost of $8.9M to $23.3M per MW (excluding GPUs)."
+   "note": "Turner & Townsend 2026-27: the most advanced US AI facilities cost $14 to $16 per watt to build (newer and tighter than the Cushman & Wakefield 2026 range of $8.9M to $23.3M per MW, which it replaces for construction). Split by Cushman & Wakefield's cost shares: 21% of the all-in cost, or 22.6% of the construction part."
   },
   {
    "id": "capex_contingency_per_mw",
@@ -2202,39 +2204,40 @@
    "unit": "USD million per MW IT",
    "kind": "derived",
    "scope": "US",
-   "low": 1.42,
-   "high": 3.73,
-   "source_title": "Data Center Construction Costs Jump 21% Since 2024 (reporting Cushman & Wakefield 2026 Data Center Development Cost Guide)",
-   "source_url": "https://www.credaily.com/briefs/data-center-construction-costs-jump-21-since-2024/",
-   "publisher": "CRE Daily (citing Cushman & Wakefield)",
-   "published": "2026-08-27",
-   "accessed": "2026-10-24",
-   "quote": "All-in greenfield costs now run from $8.9M to $23.3M per MW",
+   "low": 2.41,
+   "high": 2.75,
+   "source_title": "Data centre construction cost index 2026-27",
+   "source_url": "https://www.turnerandtownsend.com/insights/data-centre-construction-cost-index-2026-27/",
+   "publisher": "Turner & Townsend",
+   "published": "2026-10",
+   "accessed": "2026-11-11",
+   "quote": "between US$14.00 and US$16.00",
    "also_from": [
+    "https://www.credaily.com/briefs/data-center-construction-costs-jump-21-since-2024/",
     "https://www.credaily.com/briefs/data-center-construction-costs-jump-21-since-2024/"
    ],
-   "note": "16% of the Cushman & Wakefield 2026 all-in build cost of $8.9M to $23.3M per MW (excluding GPUs)."
+   "note": "Turner & Townsend 2026-27: the most advanced US AI facilities cost $14 to $16 per watt to build (newer and tighter than the Cushman & Wakefield 2026 range of $8.9M to $23.3M per MW, which it replaces for construction). Split by Cushman & Wakefield's cost shares: 16% of the all-in cost, or 17.2% of the construction part."
   },
   {
    "id": "capex_mechanical_per_mw",
    "label": "Mechanical, fit-out and fees, per MW",
    "category": "capex",
-   "value": 6.28,
+   "value": 6.29,
    "unit": "USD million per MW IT",
    "kind": "derived",
    "scope": "US",
-   "low": 3.47,
-   "high": 9.09,
-   "source_title": "Data Center Construction Costs Jump 21% Since 2024 (reporting Cushman & Wakefield 2026 Data Center Development Cost Guide)",
-   "source_url": "https://www.credaily.com/briefs/data-center-construction-costs-jump-21-since-2024/",
-   "publisher": "CRE Daily (citing Cushman & Wakefield)",
-   "published": "2026-08-27",
-   "accessed": "2026-10-24",
-   "quote": "All-in greenfield costs now run from $8.9M to $23.3M per MW",
+   "low": 5.87,
+   "high": 6.71,
+   "source_title": "Data centre construction cost index 2026-27",
+   "source_url": "https://www.turnerandtownsend.com/insights/data-centre-construction-cost-index-2026-27/",
+   "publisher": "Turner & Townsend",
+   "published": "2026-10",
+   "accessed": "2026-11-11",
+   "quote": "between US$14.00 and US$16.00",
    "also_from": [
     "https://www.credaily.com/briefs/data-center-construction-costs-jump-21-since-2024/"
    ],
-   "note": "The remaining 39% of the all-in cost after site, shell, power and contingency: mechanical, fit-out, fees and other."
+   "note": "The remaining 41.9% of the Turner & Townsend construction cost ($14 to $16 per watt) after shell, power and contingency: mechanical, fit-out, fees and other."
   },
   {
    "id": "capex_air_cooling_factor",
@@ -2651,112 +2654,107 @@
    "id": "pue__liquid",
    "label": "Design PUE, liquid cooling with dry coolers",
    "category": "energy",
-   "value": 1.25,
+   "value": 1.09,
    "unit": "ratio",
    "kind": "sourced",
    "scope": "US",
-   "low": 1.15,
-   "high": 1.35,
-   "source_title": "2024 United States Data Center Energy Usage Report",
-   "source_url": "https://escholarship.org/content/qt32d6m0d1/qt32d6m0d1.pdf",
+   "low": 1.08,
+   "high": 1.11,
+   "source_title": "2024 United States Data Center Energy Usage Report (LBNL-2001637), Figure 4.4",
+   "source_url": "https://eta-publications.lbl.gov/sites/default/files/2024-12/us_data_center_energy_usage_report_lbnl-2001637.pdf",
    "publisher": "Lawrence Berkeley National Laboratory",
    "published": "2024-12",
-   "accessed": "2026-10-24",
-   "quote": "by 2028, the average PUE falls to between 1.15 and 1.35",
-   "note": "LBNL's 2028 projection for new US capacity (1.15 to 1.35); dry coolers sit at the upper end of hyperscale practice."
-  },
-  {
-   "id": "pue__liquid_tower",
-   "label": "Design PUE, liquid cooling with towers",
-   "category": "energy",
-   "value": 1.14,
-   "unit": "ratio",
-   "kind": "sourced",
-   "scope": "Global",
-   "low": 1.09,
-   "high": 1.14,
-   "source_title": "AWS Cloud - Sustainability",
-   "source_url": "https://sustainability.aboutamazon.com/products-services/aws-cloud",
-   "publisher": "Amazon",
-   "published": "2026",
-   "accessed": "2026-10-24",
-   "quote": "In 2025, our data centers reported an average global PUE of 1.14",
-   "also_from": [
-    "https://www.datacenters.google/efficiency"
-   ],
-   "note": "A fleet proxy: evaporative cooling as run by AWS (1.14) and Google (1.09); the AWS fleet figure is used."
-  },
-  {
-   "id": "pue__air",
-   "label": "Design PUE, air cooling",
-   "category": "energy",
-   "value": 1.44,
-   "unit": "ratio",
-   "kind": "sourced",
-   "scope": "Global",
-   "source_title": "Uptime Institute Global Data Center Survey 2025 (Keynote Report 180)",
-   "source_url": "https://datacenter.uptimeinstitute.com/rs/711-RIA-145/images/2025.Annual.Survey.Report.pdf?version=0",
-   "publisher": "Uptime Institute",
-   "published": "2025-07",
-   "accessed": "2026-10-24",
-   "quote": "Larger facilities (20 MW+) average 1.44",
-   "also_from": [
-    "https://datacenter.uptimeinstitute.com/rs/711-RIA-145/images/2025.Annual.Survey.Report.pdf?version=0"
-   ],
-   "note": "Uptime 2025 survey, sites of 20 MW and above (1.44); industry average 1.54."
+   "accessed": "2026-11-11",
+   "quote": "Utilization of economizers, adiabatic cooling, or dry coolers can contribute to lower PUE values",
+   "note": "Large-scale class, row 'IT Liquid cooling: dry cooler (air-cooled chiller)'. Warm-water liquid cooling (ASHRAE class W45 in LBNL's model) lets dry coolers reject heat without chillers most of the year. Read off the box plot of Figure 4.4 (box = middle half of LBNL's simulated sites, value = median) to about 0.01; the figure was read from its reproduction in Alston et al., arXiv 2609.25437, Figure 2, because the LBNL PDF serves the chart as an image."
   },
   {
    "id": "wue__liquid",
    "label": "WUE, liquid cooling with dry coolers",
    "category": "energy",
-   "value": 0.1,
+   "value": 0,
    "unit": "L per kWh IT",
    "kind": "sourced",
    "scope": "US",
-   "source_title": "2024 United States Data Center Energy Usage Report (LBNL-2001637)",
-   "source_url": "https://climate.mit.edu/sites/default/files/2025-02/lbnl-2024-united-states-data-center-energy-usage-report.pdf",
+   "source_title": "2024 United States Data Center Energy Usage Report (LBNL-2001637), Figure 4.4",
+   "source_url": "https://eta-publications.lbl.gov/sites/default/files/2024-12/us_data_center_energy_usage_report_lbnl-2001637.pdf",
    "publisher": "Lawrence Berkeley National Laboratory",
    "published": "2024-12",
-   "accessed": "2026-10-24",
-   "quote": "Some hyperscale facilities report WUE values for similar systems of 0.1-0.3 L/kWh",
-   "also_from": [
-    "https://sustainability.aboutamazon.com/products-services/aws-cloud"
-   ],
-   "note": "Low end of LBNL's hyperscale range (0.1 L/kWh): a closed loop with dry coolers consumes little water beyond make-up."
+   "accessed": "2026-11-11",
+   "quote": "While air-cooled chillers use no water, they use more energy.",
+   "note": "Large-scale class, same row: the figure shows zero; a closed loop with dry coolers evaporates no water. Read off the box plot of Figure 4.4 (box = middle half of LBNL's simulated sites, value = median) to about 0.01; the figure was read from its reproduction in Alston et al., arXiv 2609.25437, Figure 2, because the LBNL PDF serves the chart as an image."
+  },
+  {
+   "id": "pue__liquid_tower",
+   "label": "Design PUE, liquid cooling with cooling towers",
+   "category": "energy",
+   "value": 1.13,
+   "unit": "ratio",
+   "kind": "sourced",
+   "scope": "US",
+   "low": 1.11,
+   "high": 1.15,
+   "source_title": "2024 United States Data Center Energy Usage Report (LBNL-2001637), Figure 4.4",
+   "source_url": "https://eta-publications.lbl.gov/sites/default/files/2024-12/us_data_center_energy_usage_report_lbnl-2001637.pdf",
+   "publisher": "Lawrence Berkeley National Laboratory",
+   "published": "2024-12",
+   "accessed": "2026-11-11",
+   "quote": "Utilization of economizers, adiabatic cooling, or dry coolers can contribute to lower PUE values",
+   "note": "Large-scale class, row 'IT Liquid cooling: waterside economizer (water-cooled chiller)'. Read off the box plot of Figure 4.4 (box = middle half of LBNL's simulated sites, value = median) to about 0.01; the figure was read from its reproduction in Alston et al., arXiv 2609.25437, Figure 2, because the LBNL PDF serves the chart as an image."
   },
   {
    "id": "wue__liquid_tower",
-   "label": "WUE, liquid cooling with towers",
+   "label": "WUE, liquid cooling with cooling towers",
    "category": "energy",
-   "value": 0.465,
+   "value": 1.96,
    "unit": "L per kWh IT",
    "kind": "sourced",
    "scope": "US",
-   "low": 0.45,
-   "high": 0.48,
-   "source_title": "2024 United States Data Center Energy Usage Report",
-   "source_url": "https://escholarship.org/content/qt32d6m0d1/qt32d6m0d1.pdf",
+   "low": 1.85,
+   "high": 2.11,
+   "source_title": "2024 United States Data Center Energy Usage Report (LBNL-2001637), Figure 4.4",
+   "source_url": "https://eta-publications.lbl.gov/sites/default/files/2024-12/us_data_center_energy_usage_report_lbnl-2001637.pdf",
    "publisher": "Lawrence Berkeley National Laboratory",
    "published": "2024-12",
-   "accessed": "2026-10-24",
-   "quote": "reaching between 0.45 and 0.48 L/kWh",
-   "note": "LBNL's 2028 projection for the US fleet (0.45 to 0.48 L/kWh), which it attributes to the shift to liquid cooling with evaporative heat rejection; a fleet proxy for tower cooling."
+   "accessed": "2026-11-11",
+   "quote": "Data centers employing water-cooled chiller systems without economizers exhibit the highest WUE",
+   "note": "Large-scale class, same row; the water is evaporated in the cooling towers. Read off the box plot of Figure 4.4 (box = middle half of LBNL's simulated sites, value = median) to about 0.01; the figure was read from its reproduction in Alston et al., arXiv 2609.25437, Figure 2, because the LBNL PDF serves the chart as an image."
+  },
+  {
+   "id": "pue__air",
+   "label": "Design PUE, air cooling on air-cooled chillers",
+   "category": "energy",
+   "value": 1.59,
+   "unit": "ratio",
+   "kind": "sourced",
+   "scope": "US",
+   "low": 1.51,
+   "high": 1.68,
+   "source_title": "2024 United States Data Center Energy Usage Report (LBNL-2001637), Figure 4.4",
+   "source_url": "https://eta-publications.lbl.gov/sites/default/files/2024-12/us_data_center_energy_usage_report_lbnl-2001637.pdf",
+   "publisher": "Lawrence Berkeley National Laboratory",
+   "published": "2024-12",
+   "accessed": "2026-11-11",
+   "quote": "While air-cooled chillers use no water, they use more energy.",
+   "note": "Midsize class, row 'Dry cooler (air-cooled chiller)': LBNL models large-scale air-cooled halls only with adiabatic or economizer assists, so the midsize row is the closest match for an air hall on air-cooled chillers. Plain air-cooled chillers without free cooling sit higher (median about 1.84). Read off the box plot of Figure 4.4 (box = middle half of LBNL's simulated sites, value = median) to about 0.01; the figure was read from its reproduction in Alston et al., arXiv 2609.25437, Figure 2, because the LBNL PDF serves the chart as an image."
   },
   {
    "id": "wue__air",
-   "label": "WUE, air cooling",
+   "label": "WUE, air cooling on air-cooled chillers",
    "category": "energy",
-   "value": 0.36,
+   "value": 0.05,
    "unit": "L per kWh IT",
    "kind": "sourced",
    "scope": "US",
-   "source_title": "2024 United States Data Center Energy Usage Report (LBNL-2001637)",
-   "source_url": "https://climate.mit.edu/sites/default/files/2025-02/lbnl-2024-united-states-data-center-energy-usage-report.pdf",
+   "low": 0,
+   "high": 0.1,
+   "source_title": "2024 United States Data Center Energy Usage Report (LBNL-2001637), Figure 4.4",
+   "source_url": "https://eta-publications.lbl.gov/sites/default/files/2024-12/us_data_center_energy_usage_report_lbnl-2001637.pdf",
    "publisher": "Lawrence Berkeley National Laboratory",
    "published": "2024-12",
-   "accessed": "2026-10-24",
-   "quote": "which stays just over 0.36 L/kWh through 2023",
-   "note": "LBNL US fleet average for 2023, a fleet of mostly air-cooled halls; air-cooled chillers themselves use no water, so this is a fleet proxy that includes evaporative heat rejection."
+   "accessed": "2026-11-11",
+   "quote": "While air-cooled chillers use no water, they use more energy.",
+   "note": "Midsize class, same row: the figure shows a point just above zero (about 0.05). Read off the box plot of Figure 4.4 (box = middle half of LBNL's simulated sites, value = median) to about 0.01; the figure was read from its reproduction in Alston et al., arXiv 2609.25437, Figure 2, because the LBNL PDF serves the chart as an image."
   },
   {
    "id": "it_utilization",
@@ -2796,6 +2794,199 @@
     "https://www.eia.gov/outlooks/steo/tables/pdf/7ctab.pdf"
    ],
    "note": "Colocation all-in rate $196/kW/month = $2.35M per MW-year, less electricity at PUE 1.2 ($0.95M): an upper bound that includes the operator's margin. The low end is half of that, our assumption."
+  },
+  {
+   "id": "rent_per_mw_year",
+   "label": "Rent per MW of IT per year, triple-net AI lease",
+   "category": "lease",
+   "value": 1.905,
+   "unit": "USD million per MW IT per year",
+   "kind": "derived",
+   "scope": "US",
+   "low": 1.856,
+   "high": 1.905,
+   "source_title": "Hut 8 Signs 15-Year, 245 MW AI Data Center Lease at River Bend Campus with Total Contract Value of $7.0 Billion",
+   "source_url": "https://canada.hut8.com/resources/press-releases/hut-8-signs-15-year-245-mw-ai-data-center-lease-at-river-bend-campus-with-total-contract-value-of-usd7-0-billion",
+   "publisher": "Hut 8 (press release)",
+   "published": "2025-12-17",
+   "accessed": "2026-11-11",
+   "quote": "Total contract value of $7.0 billion over a 15-year base lease term",
+   "also_from": [
+    "https://www.hut8.com/news-insights/press-releases/hut-8-commercializes-first-phase-of-1-gw-beacon-point-ai-data-center-campus-with-15-year-352-mw"
+   ],
+   "note": "Hut 8, River Bend: $7.0B over 15 years for 245 MW = $1.905M per MW-year (average over the term, 3% escalator included). Beacon Point: $9.8B over 15 years for 352 MW = $1.856M, the low end."
+  },
+  {
+   "id": "lease_term_years",
+   "label": "Lease base term",
+   "category": "lease",
+   "value": 15,
+   "unit": "years",
+   "kind": "sourced",
+   "scope": "US",
+   "source_title": "Hut 8 Signs 15-Year, 245 MW AI Data Center Lease at River Bend Campus with Total Contract Value of $7.0 Billion",
+   "source_url": "https://canada.hut8.com/resources/press-releases/hut-8-signs-15-year-245-mw-ai-data-center-lease-at-river-bend-campus-with-total-contract-value-of-usd7-0-billion",
+   "publisher": "Hut 8 (press release)",
+   "published": "2025-12-17",
+   "accessed": "2026-11-11",
+   "quote": "Triple net (NNN) lease.",
+   "note": "15-year base term with three 5-year renewal options; triple net, so the tenant pays operating costs, taxes and insurance."
+  },
+  {
+   "id": "check_river_bend_build_busd",
+   "label": "River Bend build cost, upper bound (check case)",
+   "category": "lease",
+   "value": 3.25,
+   "unit": "USD billion",
+   "kind": "sourced",
+   "scope": "LA",
+   "source_title": "Hut 8 Closes $3.25 Billion of Investment-Grade Senior Secured Notes in Landmark Financing for River Bend Data Center Project",
+   "source_url": "https://www.prnewswire.com/news-releases/hut-8-closes-3-25-billion-of-investment-grade-senior-secured-notes-in-landmark-financing-for-river-bend-data-center-project-302759566.html",
+   "publisher": "Hut 8 (press release, PR Newswire)",
+   "published": "2026-04-30",
+   "accessed": "2026-11-11",
+   "quote": "Hut 8 Closes $3.25 Billion of Investment-Grade Senior Secured Notes",
+   "note": "Proceeds build the 245 MW turnkey data center and its substation, return about $184M of prior equity to Hut 8 and fund debt service reserves; the release says the project is fully funded by the offering. So $3.25B is an upper bound on the build cost."
+  },
+  {
+   "id": "check_river_bend_rent_busd_year",
+   "label": "River Bend average rent per year (check case)",
+   "category": "lease",
+   "value": 0.467,
+   "unit": "USD billion per year",
+   "kind": "derived",
+   "scope": "LA",
+   "source_title": "Hut 8 Signs 15-Year, 245 MW AI Data Center Lease at River Bend Campus with Total Contract Value of $7.0 Billion",
+   "source_url": "https://canada.hut8.com/resources/press-releases/hut-8-signs-15-year-245-mw-ai-data-center-lease-at-river-bend-campus-with-total-contract-value-of-usd7-0-billion",
+   "publisher": "Hut 8 (press release)",
+   "published": "2025-12-17",
+   "accessed": "2026-11-11",
+   "quote": "Total contract value of $7.0 billion over a 15-year base lease term",
+   "note": "$7.0B / 15 years."
+  },
+  {
+   "id": "check_river_bend_rent_share",
+   "label": "River Bend rent per year as a share of build cost (check case)",
+   "category": "lease",
+   "value": 0.144,
+   "unit": "ratio",
+   "kind": "derived",
+   "scope": "LA",
+   "source_title": "Hut 8 Signs 15-Year, 245 MW AI Data Center Lease at River Bend Campus with Total Contract Value of $7.0 Billion",
+   "source_url": "https://canada.hut8.com/resources/press-releases/hut-8-signs-15-year-245-mw-ai-data-center-lease-at-river-bend-campus-with-total-contract-value-of-usd7-0-billion",
+   "publisher": "Hut 8 (press release)",
+   "published": "2025-12-17",
+   "accessed": "2026-11-11",
+   "quote": "Total contract value of $7.0 billion over a 15-year base lease term",
+   "also_from": [
+    "https://www.prnewswire.com/news-releases/hut-8-closes-3-25-billion-of-investment-grade-senior-secured-notes-in-landmark-financing-for-river-bend-data-center-project-302759566.html"
+   ],
+   "note": "$0.467B a year / $3.25B = 14.4% a year. The $3.25B also covers reserves and a $184M equity return, so the true share is a little higher."
+  },
+  {
+   "id": "lease_tenant_brings_compute",
+   "label": "Tenant deploys its own compute",
+   "category": "lease",
+   "value": 0,
+   "unit": "",
+   "kind": "sourced",
+   "scope": "US",
+   "text": "The tenant brings its own GPUs; the developer owns land, building, power and cooling.",
+   "source_title": "Hut 8 signs 352MW data center lease in Texas with investment grade tenant",
+   "source_url": "https://datacenterdynamics.com/en/news/hut-8-signs-352mw-data-center-lease-in-texas-with-investment-grade-tenant/",
+   "publisher": "Data Center Dynamics (reporting Hut 8)",
+   "published": "2026-05",
+   "accessed": "2026-11-11",
+   "quote": "The tenant will deploy dedicated compute infrastructure at the campus",
+   "note": "Under these leases the developer owns land, building, power and cooling; the tenant brings the GPUs."
+  },
+  {
+   "id": "liquid_only__gb200",
+   "label": "Sold liquid cooled only, GB200 NVL72",
+   "category": "cooling",
+   "value": 1,
+   "unit": "flag",
+   "kind": "sourced",
+   "scope": "Global",
+   "text": "NVIDIA sells it liquid cooled only.",
+   "source_title": "NVIDIA GB200 NVL72",
+   "source_url": "https://www.nvidia.com/en-us/data-center/gb200-nvl72/",
+   "publisher": "NVIDIA",
+   "published": "2026",
+   "accessed": "2026-11-11",
+   "quote": "in a rack-scale, liquid-cooled design",
+   "note": "NVIDIA sells the rack liquid cooled only; no air-cooled version."
+  },
+  {
+   "id": "liquid_only__gb300",
+   "label": "Sold liquid cooled only, GB300 NVL72",
+   "category": "cooling",
+   "value": 1,
+   "unit": "flag",
+   "kind": "sourced",
+   "scope": "Global",
+   "text": "NVIDIA sells it liquid cooled only.",
+   "source_title": "NVIDIA GB300 NVL72",
+   "source_url": "https://www.nvidia.com/en-us/data-center/gb300-nvl72/",
+   "publisher": "NVIDIA",
+   "published": "2026-07",
+   "accessed": "2026-11-11",
+   "quote": "features a fully liquid-cooled, rack-scale architecture",
+   "note": "NVIDIA sells the rack liquid cooled only."
+  },
+  {
+   "id": "liquid_only__rubin",
+   "label": "Sold liquid cooled only, Vera Rubin NVL144",
+   "category": "cooling",
+   "value": 1,
+   "unit": "flag",
+   "kind": "sourced",
+   "scope": "Global",
+   "text": "Liquid cooled (secondary source reporting NVIDIA).",
+   "source_title": "NVIDIA offers a preview of what's next for gigawatt-scale AI factories at the OCP Global Summit",
+   "source_url": "https://www.storagereview.com/news/nvidia-offers-a-preview-of-whats-next-for-gigawatt-scale-ai-factories-at-the-ocp-global-summit",
+   "publisher": "StorageReview (reporting NVIDIA)",
+   "published": "2025-10",
+   "accessed": "2026-11-11",
+   "quote": "The Vera Rubin NVL144 rack design features energy-efficient 45\u00b0C liquid cooling",
+   "note": "Secondary source reporting NVIDIA's OCP presentation."
+  },
+  {
+   "id": "liquid_air_heat_share",
+   "label": "Heat a liquid-cooled rack still sends to air",
+   "category": "cooling",
+   "value": 0.1,
+   "unit": "ratio",
+   "kind": "sourced",
+   "scope": "Global",
+   "low": 0.1,
+   "high": 0.15,
+   "source_title": "Lenovo NVIDIA GB300 NVL72 Rack-Scale AI Product Guide (LP2357)",
+   "source_url": "https://lenovopress.lenovo.com/lp2357-lenovo-nvidia-gb300-nvl72-rack-scale-ai",
+   "publisher": "Lenovo Press",
+   "published": "2026",
+   "accessed": "2026-11-11",
+   "quote": "about 10% to air and 90% to liquid",
+   "also_from": [
+    "https://www.vertiv.com/4a9fd7/globalassets/shared/vertiv-smartit-for-nvidia-gb300-nvl72_datasheet_englis_sl-80699.pdf"
+   ],
+   "note": "OSFP optics, storage and power boards stay air cooled. Vertiv's GB300 rack datasheet gives about 85% liquid and 15% air, used as the high end."
+  },
+  {
+   "id": "fan_wall_unit_kw",
+   "label": "Fan wall capacity per unit",
+   "category": "cooling",
+   "value": 500,
+   "unit": "kW per unit",
+   "kind": "sourced",
+   "scope": "Global",
+   "source_title": "Vertiv CoolLoop Thermal Wall datasheet (SL-70713)",
+   "source_url": "https://www.vertiv.com/4add96/globalassets/documents/data-sheets/vertiv-coolloop-thermal-wall-ds-en-na-sl-70713-web.pdf",
+   "publisher": "Vertiv",
+   "published": "2025-12",
+   "accessed": "2026-11-11",
+   "quote": "CA80 model up to 500 kW",
+   "note": "Gallery-side chilled-water fan wall for air and hybrid (liquid plus air) halls; the CA60 is 400 kW."
   },
   {
    "id": "ctx_ic_gen_request_to_cod_months",
@@ -3283,7 +3474,7 @@
   },
   {
    "id": "ctx_delay_driver_equipment_pct",
-   "label": "Capital project delay driver: manufacturing/equipment delays (2025)",
+   "label": "Capital project delay cause: manufacturing/equipment delays (2025)",
    "category": "context",
    "value": 42,
    "unit": "percent of delayed projects",
@@ -3295,11 +3486,11 @@
    "published": "2025-12",
    "accessed": "2026-10-24",
    "quote": "Manufacturing/equipment delays: 46% \u2192 42%",
-   "note": "2024 to 2025, n=170 in 2025. Other drivers 2025: capital availability 35%, physical infrastructure changes 34%, power availability 25%, legislation/tax incl. permitting 20%."
+   "note": "2024 to 2025, n=170 in 2025. Other causes 2025: capital availability 35%, physical infrastructure changes 34%, power availability 25%, legislation/tax incl. permitting 20%."
   },
   {
    "id": "ctx_delay_driver_power_availability_pct",
-   "label": "Capital project delay driver: power availability (2025)",
+   "label": "Capital project delay cause: power availability (2025)",
    "category": "context",
    "value": 25,
    "unit": "percent of delayed projects",
@@ -3315,7 +3506,7 @@
   },
   {
    "id": "ctx_delay_driver_permitting_legislation_pct",
-   "label": "Capital project delay driver: legislation/tax incl. permitting (2025)",
+   "label": "Capital project delay cause: legislation/tax incl. permitting (2025)",
    "category": "context",
    "value": 20,
    "unit": "percent of delayed projects",
@@ -3327,7 +3518,7 @@
    "published": "2025-12",
    "accessed": "2026-10-24",
    "quote": "Legislation/tax issues (e.g., permitting): 13% \u2192 20%",
-   "note": "Fastest-growing driver 2024 to 2025."
+   "note": "Fastest-growing cause 2024 to 2025."
   },
   {
    "id": "ctx_capex_inflation_since_2024_pct",

@@ -9,7 +9,7 @@ Every number the planner or the report uses lives here. No value without a sourc
     {
       "id": "lead_lpt_months",                 // snake_case, unique
       "label": "Large power transformer lead time",
-      "category": "lead_time | interconnection | permit | construction | commissioning | capex | opex | energy | cooling | compute | risk",
+      "category": "lead_time | interconnection | permit | construction | commissioning | capex | opex | energy | cooling | compute | lease | risk",
       "value": 30,                             // central value used in calculations (number)
       "low": 24, "high": 48,                   // optional range; if given, UI shows "range"
       "unit": "months",
