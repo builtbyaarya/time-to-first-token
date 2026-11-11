@@ -19,7 +19,7 @@ It is a screening tool. It does not replace a utility load study, a queue positi
 
 - Hosted: https://builtbyaarya.github.io/time-to-first-token/ (no sign-up, nothing stored).
 - Locally: clone the repo and open `index.html` through any static server, for example `python3 -m http.server`, then `http://localhost:8000/`.
-- Share a plan: the link carries the inputs, and the Share card button renders a PNG of the finished site with the headline numbers.
+- Share a plan: the Share button at the top right copies a link that carries the inputs, and its Share card item renders a PNG of the finished site with the headline numbers.
 - Get the study: enter an email on the page and a feasibility study for your exact inputs arrives as a PDF within a day. Three samples, for 300 MW in Northern Virginia on hybrid power (first token in 51 months), 100 MW in Texas on the grid (56 months) and 1,000 MW in Iowa on bridge power (62 months), are in the release assets.
 
 ## Licence, in one line
@@ -32,7 +32,11 @@ Open a GitHub issue on this repo: a number you dispute (with the source), a piec
 
 ## What it does
 
-Set the location, the IT load, the power strategy, the redundancy, the cooling and the accelerator generation. The site builds itself in 3D as the plan moves: land, permits, power, shell, electrical, cooling, white space, compute, commissioning Level 1 to Level 5, first token. The planner gives the critical-path schedule, the levers that save or cost months and dollars, capex and opex ranges, PUE and water, and a risk register. A stress test replays real kinds of delay on the plan. At the end you can ask for a full feasibility study for your exact inputs, emailed as a PDF.
+The page opens on a short welcome where you pick Beginner or Engineer (you can switch any time from the top bar). The planner then walks through seven steps, each closing to a one-line summary: location, IT load, power (strategy and onsite plant), redundancy (with the Uptime tier it corresponds to), cooling (with the expected PUE and WUE shown live), compute (GPU generation and rack density) and schedule. Press Build it and the site builds itself in 3D: land, permits, power, shell, electrical, cooling, white space, compute, commissioning Level 1 to Level 5, first token. Beginner shows the first-output date, the months, the build cost and one plain sentence on what sets the date. Engineer adds the developer view, the full critical path, stress tests, a short ranked list of levers ("saves 8 months for $107M more"), the risk register and the cost, energy and water tables with low, mid and high. The Data & Sources tab lists every value in the pack with its source, searchable. The Share menu holds the link, CSV, JSON, the share card and the request for a full feasibility study for your exact inputs, emailed as a PDF.
+
+Two rules come from the hardware. Rack density stays inside the published range of the chosen rack, and air cooling cannot be chosen above the 50 kW per rack ceiling that the Uptime Institute, the data center standards body, gives, or for a rack NVIDIA sells liquid cooled only; every rack in the pack is liquid-only. Liquid halls still send about 10% of their heat to air, so the plan sizes the fan walls for it.
+
+The landlord view follows how developers such as Hut 8, which builds AI data centers and leases them, actually earn: the developer builds and owns land, building, power and cooling; the tenant signs a 15-year triple-net lease and brings its own GPUs. So the headline cost is the developer's build cost, the GPUs are a separate tenant's line, and the developer view shows the rent per year (from Hut 8's own lease releases), rent as a share of build cost and the rent lost for each month of delay.
 
 Every number comes from a dated, versioned data pack in `data/` with its source, publisher and the date it was read. Nothing is typed in from memory. Assumptions are labelled as assumptions, in the UI and in the study.
 
@@ -52,7 +56,7 @@ Every number comes from a dated, versioned data pack in `data/` with its source,
 
 ## How it is built
 
-- `index.html`, `css/style.css`, `js/app.js`: the page. No framework, no build step; system fonts; one accent colour.
+- `index.html`, `css/style.css`, `js/app.js`: the page. No framework, no build step. Fonts are served from `fonts/` (Instrument Serif and IBM Plex Sans and Mono, SIL Open Font License), so nothing loads from an outside font service; numbers use tabular figures.
 - `js/scene.js`: the 3D site in three.js (served from `js/vendor/three`, so nothing loads from an outside CDN). One fixed sun; the camera moves, the light never does, so every shadow lands in the same place from the first stage to the last. Soft shadows, a section view that cuts the building open, racks that light up as they are commissioned, heat haze over the coolers when the site goes live. Render-on-demand, instanced racks and fence posts, a flat 2D fallback without WebGL, and no animation under `prefers-reduced-motion`.
 - `js/model.js`: the planner. A critical-path calculation over the tasks a build really has, with lagged starts where fit-outs overlap, plus the cost, energy and water arithmetic. `docs/methodology.md` explains every formula.
 - `data/pack.json`: the data pack. `scripts/build_pack.py` assembles it from the research files in `data/research/` and records every unit conversion and derivation. `docs/sources.md` lists the sources.
@@ -72,9 +76,9 @@ The page posts the email address and the inputs to a form; a scheduled job reads
 
 ## What is real and what is a model
 
-The pack holds 205 values, read from 77 source pages, from the Lawrence Berkeley National Laboratory, the US Energy Information Administration, the EPA, ERCOT, PJM, MISO, SPP, FERC, Dominion, state and county permitting pages, the Uptime Institute, Cushman & Wakefield, JLL, Wood Mackenzie, NVIDIA and vendor spec sheets, company filings and the trade press. Where a figure exists only in a secondary source, the pack says so. Where no public figure exists at all (eighteen values: a civil-works duration, a bring-up month, the construction scaling exponent, a GPU allocation delay and a few sizing ratios), the pack labels it an assumption and the UI shows the label.
+The pack holds 216 values, read from 102 source pages, from the Lawrence Berkeley National Laboratory, the US Energy Information Administration, the EPA, ERCOT, PJM, MISO, SPP, FERC, Dominion, state and county permitting pages, the Uptime Institute, Cushman & Wakefield, Turner & Townsend, JLL, Hut 8's lease and financing releases, Lenovo and Vertiv product documents, Wood Mackenzie, NVIDIA and vendor spec sheets, company filings and the trade press. Where a figure exists only in a secondary source, the pack says so. Where no public figure exists at all (eighteen values: a civil-works duration, a bring-up month, the construction scaling exponent, a GPU allocation delay and a few sizing ratios), the pack labels it an assumption and the UI shows the label.
 
-The model is a planning model. It does not know your utility's queue position, your county's board, or your turbine slot. It is meant to show what drives the date and the money, and to be re-run as the real figures come in.
+The model is a planning model. It does not know your utility's queue position, your county's board, or your turbine slot. It is meant to show what sets the date and the money, and to be re-run as the real figures come in.
 
 ## What it cannot tell you
 
@@ -83,11 +87,11 @@ The model is a planning model. It does not know your utility's queue position, y
 - Vendor quotes or real slot reservations for transformers, switchgear, turbines or GPUs.
 - Anything an owner's engineer, a lender's independent engineer or a stamped design would sign.
 
-It is meant to show what drives the date and the money, and to be re-run as the real figures come in.
+It is meant to show what sets the date and the money, and to be re-run as the real figures come in.
 
 ## The audit
 
-Before 1.0.0 shipped, an independent data audit checked the pack against its sources (252 checks across the model-driving values, the derived values recomputed from the research inputs, the assumptions and their labelling, and a sample of context values), and a separate industry review read the model, the page and a sample study in the role of a data center development director (25 items, five of them blockers). The blockers and the failing checks were fixed in the 1.0.0 release; the two reports are published as written in `docs/audit/`, line numbers and all, so you can see what was found and check the fixes yourself.
+Before 1.0.0 shipped, an independent data audit checked the pack against its sources (252 checks across the values the model uses, the derived values recomputed from the research inputs, the assumptions and their labelling, and a sample of context values), and a separate industry review read the model, the page and a sample study in the role of a data center development director (25 items, five of them blockers). The blockers and the failing checks were fixed in the 1.0.0 release; the two reports are published as written in `docs/audit/`, line numbers and all, so you can see what was found and check the fixes yourself.
 
 ## Commercial use
 
@@ -110,6 +114,6 @@ See `ROADMAP.md`. `CHANGELOG.md` records what shipped.
 
 ## Licence
 
-Code MIT (`LICENSE`). Data pack snapshot CC BY 4.0 (`data/LICENSE`); the sold items carry a commercial licence (`LICENSE-DATA.md`). Sibling project: [Solar Factory: Survive to 2030](https://github.com/builtbyaarya/solar-factory-game).
+Code MIT (`LICENSE`). Data pack snapshot CC BY 4.0 (`data/LICENSE`); the sold items carry a commercial licence (`LICENSE-DATA.md`). Sibling projects: [Solar Factory: Survive to 2030](https://github.com/builtbyaarya/solar-factory-game) and [US Solar Trade Tracker](https://github.com/builtbyaarya/us-solar-trade-tracker).
 
 Built by Aarya.
