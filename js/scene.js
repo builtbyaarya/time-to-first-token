@@ -5,9 +5,9 @@ import * as THREE from "three";
 import { STAGES } from "./model.js";
 
 const C = {
-  bg: 0xffffff, ground: 0xf3f3f1, earth: 0xdcd6c8, pad: 0xe9e8e3, grid: 0xd9d9d4, road: 0xb9b8b2,
+  bg: 0xf7f5f0, ground: 0xefece4, earth: 0xdcd4c3, pad: 0xe7e3d9, grid: 0xd8d3c7, road: 0xb7b2a6,
   concrete: 0xd3d2cd, steel: 0x8f949c, wall: 0xf6f6f4, roof: 0xe4e4e1, dark: 0x3a3d44, cab: 0x5d6168,
-  rack: 0x2b2e34, rackFace: 0x3e424a, cooler: 0xc9ccd2, pipe: 0x7f8892, accent: 0x2d5bff, glass: 0xdfe6f5,
+  rack: 0x2b2e34, rackFace: 0x3e424a, cooler: 0xc9ccd2, pipe: 0x7f8892, accent: 0x2f9a7e, glass: 0xdfe6f5,
   panel: 0x2f3a55, gravel: 0xe2e0d8, fence: 0xa9aba7, flag: 0xff5a1f, tower: 0x9a9ea5, line: 0x6b6f76,
 };
 const ease = (x) => x <= 0 ? 0 : x >= 1 ? 1 : (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
@@ -73,9 +73,10 @@ export class Site {
   // geometry helpers
   // ---------------------------------------------------------------------------------------------------
   _mat(color, extra = {}) {
-    const m = new THREE.MeshStandardMaterial({ color, roughness: 0.92, metalness: 0.0, ...extra });
-    if (extra.clipped) { m.clippingPlanes = [this.clip]; m.clipShadows = true; }
-    delete m.clipped; return m;
+    const { clipped, ...rest } = extra; // "clipped" is ours, not a three.js material property
+    const m = new THREE.MeshStandardMaterial({ color, roughness: 0.92, metalness: 0.0, ...rest });
+    if (clipped) { m.clippingPlanes = [this.clip]; m.clipShadows = true; }
+    return m;
   }
   _box(w, h, d, color, extra = {}) {
     const g = new THREE.BoxGeometry(w, h, d); g.translate(0, h / 2, 0); // grows from the ground
@@ -410,7 +411,7 @@ export class Site {
 // ---------------------------------------------------------------------------------------------------
 export function drawFallback(canvas, plan, time, cfg) {
   const x = canvas.getContext("2d"); const W = canvas.width, H = canvas.height; x.clearRect(0, 0, W, H);
-  x.fillStyle = "#ffffff"; x.fillRect(0, 0, W, H);
+  x.fillStyle = "#f7f5f0"; x.fillRect(0, 0, W, H);
   const p = {}; for (const s of STAGES) { const a = plan.stageStart[s.id], b = plan.stageEnd[s.id]; p[s.id] = b <= a ? (time >= b ? 1 : 0) : clamp01((time - a) / (b - a)); }
   const iso = (px, pz, py = 0) => [W / 2 + (px - pz) * 9, H * 0.62 + (px + pz) * 4.5 - py * 9];
   const poly = (pts, fill) => { x.beginPath(); pts.forEach((q, i) => i ? x.lineTo(...q) : x.moveTo(...q)); x.closePath(); x.fillStyle = fill; x.fill(); };
@@ -423,6 +424,6 @@ export function drawFallback(canvas, plan, time, cfg) {
   if (p.cooling > 0.1) for (let i = 0; i < 5; i++) box(12, -6.4 + i * 3.2, 3, 2.2, 2.2, "#d9dce2", "#c9ccd2");
   if (p.electrical > 0.3) for (let i = 0; i < 4; i++) box(-16 + i * 4.9, -10.7, 4.4, 1.9, 2.6, "#f6f6f4", "#e4e4e1");
   const nLit = Math.round(p.compute * 64);
-  if (p.whitespace > 0.5 && h > 5) for (let r = 0; r < 4; r++) for (let i = 0; i < 16; i++) { const k = r * 16 + i; x.fillStyle = k < nLit ? (p.live > 0.5 ? "#2d5bff" : "#3e424a") : "#b7b9bd"; const [px, py] = iso(-14 + i * 1.12, -5.6 + r * 3.2, 5.4); x.fillRect(px - 2, py - 2, 4, 4); }
-  x.fillStyle = "#7a7d85"; x.font = "12px system-ui, sans-serif"; x.fillText("Flat view", 16, 24);
+  if (p.whitespace > 0.5 && h > 5) for (let r = 0; r < 4; r++) for (let i = 0; i < 16; i++) { const k = r * 16 + i; x.fillStyle = k < nLit ? (p.live > 0.5 ? "#2f9a7e" : "#3e424a") : "#b7b9bd"; const [px, py] = iso(-14 + i * 1.12, -5.6 + r * 3.2, 5.4); x.fillRect(px - 2, py - 2, 4, 4); }
+  x.fillStyle = "#75746e"; x.font = "12px 'IBM Plex Sans', system-ui, sans-serif"; x.fillText("Flat view", 16, 24);
 }
