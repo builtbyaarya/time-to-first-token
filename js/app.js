@@ -1,12 +1,12 @@
 // Time to First Token: the page. Welcome > guided planner > Build it > results, plus the Data & Sources tab.
-import { Pack, STAGES, STRESSES, DEFAULT_INPUTS, plan, levers, risks, exportRows, mid, addMonths, fmtMonth, genLabel, densityRange, coolingRules } from "./model.js";
+import { Pack, STAGES, STRESSES, DEFAULT_INPUTS, plan, levers, risks, exportRows, mid, addMonths, fmtMonth, genLabel, densityRange, coolingRules, coolingModel, coolingBounds } from "./model.js";
 
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => [...document.querySelectorAll(s)];
 const debug = new URLSearchParams(location.search).get("debug") === "1";
 const REPORT_FORM = "https://docs.google.com/forms/d/e/1FAIpQLSeVCVO7KwCtnVYKx85-GTwhld0cpOQGqnhj6VXOQdrDbmH1MQ/formResponse";
 const REPORT_FIELDS = { email: "entry.2022754142", run: "entry.1374242536" };
-const URLKEYS = { s: "state", mw: "mw", p: "power", b: "bridge", r: "redund", c: "cool", g: "gpu", d: "density", t: "target", st: "start", x: "stress" };
+const URLKEYS = { s: "state", mw: "mw", p: "power", b: "bridge", r: "redund", c: "cool", g: "gpu", d: "density", t: "target", st: "start", x: "stress", ts: "ts", ta: "ta" };
 const ISO_WHO = { ERCOT: "ERCOT, the Texas grid operator", PJM: "PJM, the grid operator for the mid-Atlantic and parts of the Midwest", MISO: "MISO, the grid operator for the central US", SPP: "SPP, the grid operator for the central plains", SERC: "SERC, the reliability region for the Southeast", WECC: "WECC, the reliability region for the West", NYISO: "NYISO, the New York grid operator", ISO: "the regional grid operator" };
 const COOL = { liquid: "Liquid, dry coolers", liquid_tower: "Liquid, cooling towers", air: "Air" };
 const POWER = { grid: "Grid only", bridge: "Onsite bridge", hybrid: "Hybrid" };
@@ -79,7 +79,11 @@ function fillInputs() {
   $("#in-bridge").addEventListener("change", () => { inp.bridge = $("#in-bridge").value; recompute(); advance("power"); });
   // grid only needs no plant, so it moves on; an onsite strategy waits for the plant choice
   $("#in-power").addEventListener("click", (e) => { const b = e.target.closest("button"); if (!b) return; inp.power = b.dataset.v; recompute(); if (inp.power === "grid") advance("power"); });
-  for (const [sel, key, step] of [["#in-redund", "redund", "redund"], ["#in-cool", "cool", "cooling"]]) $(sel).addEventListener("click", (e) => { const b = e.target.closest("button"); if (!b || b.disabled) return; inp[key] = b.dataset.v; recompute(); advance(step); });
+  for (const [sel, key, step] of [["#in-redund", "redund", "redund"], ["#in-cool", "cool", "cooling"]]) $(sel).addEventListener("click", (e) => { const b = e.target.closest("button"); if (!b || b.disabled) return;
+    if (key === "cool" && inp.cool !== b.dataset.v) { inp.ts = null; inp.ta = null; } inp[key] = b.dataset.v; recompute(); if (!(key === "cool" && mode === "engineer")) advance(step); });
+  // engineer inputs: coolant supply temperature and the outdoor approach; blank goes back to the sourced default
+  for (const [id, key] of [["#in-ts", "ts"], ["#in-ta", "ta"]]) $(id).addEventListener("change", () => { const el = $(id); const v = el.value.trim();
+    const b = coolingBounds(pack, inp.cool)[key]; if (v === "") inp[key] = null; else { let x = Number(v); if (!isFinite(x)) x = b[2]; x = Math.max(b[0], Math.min(b[1], x)); inp[key] = x === b[2] ? null : x; } recompute(); });
   for (const li of $$(".step")) {
     li.querySelector(".step-h").addEventListener("click", () => li.classList.contains("open") ? closeStep(li) : openStep(li.dataset.step));
     li.querySelector(".next").addEventListener("click", () => { li.classList.add("done"); const i = STEP_ORDER.indexOf(li.dataset.step); if (i < STEP_ORDER.length - 1) openStep(STEP_ORDER[i + 1]); else { closeStep(li); $("#b-build").focus({ preventScroll: true }); $("#b-build").scrollIntoView({ block: "nearest", behavior: "smooth" }); } });
@@ -111,6 +115,8 @@ function syncInputs() {
   const dn = $("#in-density"); dn.min = lo; dn.max = hi; dn.step = 1; dn.value = inp.density;
   for (const b of $$("#mw-chips button")) b.setAttribute("aria-pressed", String(Number(b.dataset.mw) === inp.mw));
   setSeg("#in-power", inp.power); setSeg("#in-redund", inp.redund); setSeg("#in-cool", inp.cool);
+  const cb = coolingBounds(pack, inp.cool);
+  for (const [id, key] of [["#in-ts", "ts"], ["#in-ta", "ta"]]) { const el = $(id); el.min = cb[key][0]; el.max = cb[key][1]; el.value = inp[key] ?? cb[key][2]; }
 }
 
 function renderSteps() {
@@ -120,15 +126,28 @@ function renderSteps() {
   $("#in-power-hint").textContent = { grid: "Wait for the utility to connect the site. The only air permit is the small one for the standby generators.", bridge: "An onsite plant runs the site until the utility connects it, then stays as backup.", hybrid: `An onsite plant carries ${Math.round(pack.v("hybrid_onsite_share") * 100)}% of the load for good, so first output comes from that share of racks; the grid takes the rest once connected.` }[inp.power];
   $("#f-bridge").hidden = inp.power === "grid";
   // cooling: live PUE and WUE per option; air is off when the rack is liquid-only or too dense
-  for (const k of ["liquid", "liquid_tower", "air"]) $(`[data-metrics="${k}"]`).textContent = `PUE ${pack.v(`pue__${k}`).toFixed(2)} · WUE ${fmtW(pack.v(`wue__${k}`))}`;
+  // each option shows its annual PUE and WUE for this state's weather (at that option's default temperatures)
+  for (const k of ["liquid", "liquid_tower", "air"]) { const c = k === inp.cool ? R.energy.cool : coolingModel(pack, inp, { cool: k }); $(`[data-metrics="${k}"]`).textContent = `PUE ${c.pue.toFixed(2)} · WUE ${fmtW(c.wue)}`; }
   const rules = R.rules; const air = $('#in-cool [data-v="air"]'); air.disabled = !rules.airAllowed;
   $("#air-od").textContent = rules.airAllowed ? `Air-cooled chillers and fan walls. Works up to about ${rules.airMax} kW per rack.` : `Not available: ${rules.reason}`;
   const e = R.energy;
   $("#live-pue").textContent = e.pue.toFixed(2); $("#live-wue").textContent = fmtW(e.wue); $("#live-air").textContent = `${Math.round(R.airSide.share * 100)}%`;
-  $("#in-cool-hint").textContent = inp.cool === "air" ? `All the heat goes to air: about ${R.airSide.units} fan walls of ${R.airSide.unitKw} kW. Design values from LBNL, the US national lab that studies data center energy.`
-    : `Liquid racks still send about ${Math.round(R.airSide.share * 100)} to ${Math.round(R.airSide.shareHi * 100)}% of their heat to air (${R.airSide.mw.toFixed(0)} MW here), so the hall also needs about ${R.airSide.units} fan walls of ${R.airSide.unitKw} kW. PUE and WUE are LBNL's values for this exact design; LBNL is the US national lab that studies data center energy.`;
+  const sn = s?.name || inp.state; const ck = e.cool;
+  const airNote = rules.airAllowed ? "" : (pack.json.gpus.some(x => !pack.has(`liquid_only__${x.id}`)) ? " To compare air, pick the DGX B200, NVIDIA's air-cooled system, in Compute." : " No air-coolable rack is in the pack, so air cannot be picked.");
+  $("#in-cool-hint").textContent = (inp.cool === "air" ? `All the heat goes to air: about ${R.airSide.units} fan walls of ${R.airSide.unitKw} kW.`
+    : `Liquid racks still send about ${Math.round(R.airSide.share * 100)} to ${Math.round(R.airSide.shareHi * 100)}% of their heat to air (${R.airSide.mw.toFixed(0)} MW here), so the hall also needs about ${R.airSide.units} fan walls of ${R.airSide.unitKw} kW.`)
+    + ` PUE and water use are worked out hour by hour from a typical year of ${sn} weather (NREL, the US national renewable energy lab, TMY3 data): towers work off the wet-bulb, which is lower, so they use less power; dry coolers use no water.` + airNote;
+  // engineer readouts
+  $("#live-chh").textContent = ck.chillerHours.toLocaleString("en-US"); $("#live-chh-s").textContent = `of 8,760, ${Math.round(ck.chillerHours / 87.6)}%`;
+  $("#live-pue-e").textContent = ck.pue.toFixed(2); $("#live-pue-s").textContent = `LBNL design value ${ck.lbnl.pue.toFixed(2)}`;
+  $("#live-wue-e").textContent = fmtW(ck.wue);
+  const b = ck.bounds; const dev = inp.cool === "liquid_tower" ? "tower" : "dry cooler";
+  $("#ta-what").textContent = dev;
+  $("#ts-hint").textContent = inp.cool === "air" ? `Chilled water to the fan walls. Default ${b.ts[2]} °C (Airedale, a cooling maker); ${b.ts[0]} to ${b.ts[1]}.` : `Facility water to the CDUs. Default ${b.ts[2]} °C, ASHRAE class W32; ${b.ts[0]} (W17) to ${b.ts[1]} (W45).`;
+  $("#ta-hint").textContent = `Water leaves the ${dev} this far above outdoor ${ck.outdoor}. Default ${b.ta[2]} K, the median of makers' data (University of Stuttgart study); ${b.ta[0]} to ${b.ta[1]}.`;
+  $("#climate-hint").textContent = `Heat path: ${inp.cool === "air" ? "fan walls" : `rack loop at ${ck.rackInlet} °C, CDU (${ck.cdu} K approach),`} facility loop at ${ck.supply} °C, plate exchanger (${ck.hx} K), ${dev} (${ck.approach} K). Free cooling while outdoor ${ck.outdoor} is below ${ck.freeBelow.toFixed(0)} °C; above that the ${inp.cool === "liquid_tower" ? "water-cooled" : "air-cooled"} chiller runs at COP ${ck.cop.toFixed(2)}, the code minimum.${inp.cool === "air" ? "" : ` The air-side share needs ${pack.v("cool_supply_air_c")} °C water, so the chiller runs for it ${ck.airLoopHours.toLocaleString("en-US")} hours a year.`} Weather: ${ck.station}, typical year.`;
   const g = pack.get(`gpu_${inp.gpu}`); const [lo, hi] = densityRange(pack, inp.gpu); const lq = pack.get(`liquid_only__${inp.gpu}`);
-  $("#in-density-hint").textContent = `${g?.text || ""}. ${lq ? "NVIDIA, the GPU maker, sells this rack liquid cooled only. " : ""}Density stays inside the published ${lo} to ${hi} kW for this rack.`;
+  $("#in-density-hint").textContent = `${g?.text || ""}. ${lq ? "NVIDIA, the GPU maker, sells this rack liquid cooled only. " : ""}Density stays inside the ${g?.uncertain ? "reported" : "published"} ${lo} to ${hi} kW for this rack.`;
   // summaries
   const sum = { location: `${s?.name || inp.state}, ${isoTxt.split(" ")[0]}`, load: `${inp.mw.toLocaleString("en-US")} MW`, power: inp.power === "grid" ? POWER.grid : `${POWER[inp.power]}, ${genLabel(inp.bridge).toLowerCase()}`, redund: REDUND[inp.redund],
     cooling: `${COOL[inp.cool]}, PUE ${e.pue.toFixed(2)}`, compute: `${(pack.json.gpus.find(x => x.id === inp.gpu) || {}).name}, ${inp.density} kW`, schedule: `${fmtMonth(inp.start)} to ${fmtMonth(inp.target)}` };
@@ -328,9 +347,11 @@ function renderCosts() {
   const one4 = (label, v) => ph ? `<tr><td>${label}</td><td class="r" colspan="2">${v}</td></tr>` : `<tr><td>${label}</td><td class="r" colspan="3">${v}</td><td class="r run"></td></tr>`;
   const r4 = (label, lo, m, hi) => ph ? `<tr><td>${label}<span class="rg">${lo} to ${hi}</span></td><td class="r mid">${m}</td><td class="r run"></td></tr>` : `<tr><td>${label}</td><td class="r">${lo}</td><td class="r mid">${m}</td><td class="r">${hi}</td><td class="r run"></td></tr>`;
   let t = ph ? `<thead><tr><th>Energy and water, a year</th><th class="r mid">Mid</th><th class="r run"></th></tr></thead><tbody>` : `<thead><tr><th>Energy and water, a year</th><th class="r">Low</th><th class="r mid">Mid</th><th class="r">High</th><th class="r run"></th></tr></thead><tbody>`;
-  const pl = pack.get(`pue__${inp.cool}`), wl = pack.get(`wue__${inp.cool}`), ut = pack.get("it_utilization");
-  t += r4(`Design PUE, ${COOL[inp.cool].toLowerCase()}${kindTag(`pue__${inp.cool}`, true)}`, (pl.low ?? pl.value).toFixed(2), pl.value.toFixed(2), (pl.high ?? pl.value).toFixed(2));
-  t += r4(`WUE, litres per kWh of IT${kindTag(`wue__${inp.cool}`, true)}`, fmtW(wl.low ?? wl.value), fmtW(wl.value), fmtW(wl.high ?? wl.value));
+  const pl = pack.get(`pue__${inp.cool}`), ut = pack.get("it_utilization"), ck = e.cool;
+  t += one4(`Annual PUE, ${COOL[inp.cool].toLowerCase()}, ${esc(ck.station)} weather${tipTag("derived", "Hour by hour over a typical year: non-cooling overhead, fans and pumps all year, and the chiller in the hours the outdoor air cannot do the job.")}`, ck.pue.toFixed(2));
+  t += one4(`Chiller hours a year, at ${ck.supply} °C supply and ${ck.approach} K approach`, `${ck.chillerHours.toLocaleString("en-US")} of 8,760`);
+  t += one4(`WUE, litres per kWh of IT${tipTag("derived", "Towers: evaporation of 0.85% of the flow per 10 F of range, plus blowdown at 5 cycles, on all the heat rejected. Dry coolers and air-cooled chillers evaporate nothing.")}`, fmtW(ck.wue));
+  t += one4(`For comparison, LBNL design PUE for this design${kindTag(`pue__${inp.cool}`, true)}`, `${(pl.low ?? pl.value).toFixed(2)} to ${(pl.high ?? pl.value).toFixed(2)}`);
   t += r4(`Average IT load, share of rated${kindTag("it_utilization", true)}`, (ut.low ?? ut.value).toFixed(2), ut.value.toFixed(2), (ut.high ?? ut.value).toFixed(2));
   t += one4("Energy used", `${fmtM(e.mwhYear / 1000)} GWh`);
   t += one4(`Electricity${e.onsiteShare ? `, grid share ${Math.round((1 - e.onsiteShare) * 100)}%` : ""}, ${e.priceC.toFixed(2)} c/kWh`, money(e.elecGrid));
@@ -341,7 +362,7 @@ function renderCosts() {
   t += one4("Water", fmtGal(e.waterMgal));
   t += one4(`Heat to air, fan walls${kindTag("liquid_air_heat_share", true)}`, `${R.airSide.mw.toFixed(0)} MW, about ${R.airSide.units} units`);
   t += one4("Racks", `${R.racks.toLocaleString("en-US")} at ${inp.density} kW`);
-  t += `<tr><td colspan="${C5}" class="muted small">PUE and WUE are for this exact cooling design, read from the 2024 report of LBNL, the US national lab that studies data center energy.</td></tr></tbody>`;
+  t += `<tr><td colspan="${C5}" class="muted small">Annual PUE and WUE come from a typical year of hourly weather for this state (NREL TMY3) run through the heat path: rack loop, CDU, facility loop, chiller with a free-cooling plate exchanger, and dry coolers or towers. LBNL, the US national lab that studies data center energy, gives the design values it is checked against.</td></tr></tbody>`;
   $("#energy-table").innerHTML = t;
 }
 // a small tag that opens a box with how a value was worked out
@@ -445,7 +466,8 @@ function buildIndex() {
   add("Simple payback", `${(L.buildMid / L.rentYear).toFixed(1)} years`, "Build cost divided by rent a year, before financing.", "payback rent return developer", "costs");
   add("Running costs a year", musd(mid(e.opex)), "Electricity and staff, paid by the tenant under triple net.", "opex running cost electricity staff", "costs");
   add("Electricity bill", musd(e.elecGrid), `${fmtM(e.mwhYear / 1000)} GWh a year at ${e.priceC.toFixed(2)} cents per kWh.`, "electricity power energy bill price", "costs");
-  add("PUE", e.pue.toFixed(2), `Design value for ${COOL[inp.cool].toLowerCase()}, from LBNL.`, "pue efficiency cooling energy", "costs");
+  add("PUE", e.pue.toFixed(2), `Annual value for ${COOL[inp.cool].toLowerCase()} in this state's weather.`, "pue efficiency cooling energy climate weather", "costs");
+  add("Chiller hours", e.cool.chillerHours.toLocaleString("en-US"), `Hours a year the chiller runs at ${e.cool.supply} °C supply; free cooling the rest.`, "chiller hours free cooling climate weather supply temperature approach", "costs");
   add("Water", fmtGal(e.waterMgal), `WUE ${fmtW(e.wue)} litres per kWh of IT.`, "water wue cooling towers", "costs");
   add("Fan walls", `${R.airSide.units} units`, `${R.airSide.mw.toFixed(0)} MW of heat still goes to air, at ${R.airSide.unitKw} kW per fan wall.`, "fan walls air heat cooling crah", "costs");
   add("Racks", R.racks.toLocaleString("en-US"), `${inp.density} kW each.`, "racks density gpu", "costs");
@@ -519,7 +541,7 @@ function showTab(tab) {
 // ---------------------------------------------------------------------------------------------------------
 function bindOutputs() {
   $("#b-csv").addEventListener("click", () => { const rows = exportRows(pack, inp, R); download("time-to-first-token.csv", rows.map(r => r.map(csvCell).join(",")).join("\n"), "text/csv"); });
-  $("#b-json").addEventListener("click", () => { download("time-to-first-token.json", JSON.stringify({ inputs: inp, results: { firstTokenMonths: R.firstToken, firstToken: R.liveDate, fullPower: R.fullDate, buildCostMusd: R.costs.site, tenantGpuMusd: R.costs.compute, rentMusdYear: R.lease.rentRange, rentShareOfBuild: R.lease.share, rentLostPerMonthMusd: R.lease.perMonth, opexMusdYear: R.energy.opex, pue: R.energy.pue, wue: R.energy.wue, waterMgalYear: R.energy.waterMgal, airSideMw: R.airSide.mw, fanWalls: R.airSide.units, inputNotes: R.inputNotes, tasks: R.tasks.map(t => ({ id: t.id, label: t.label, start: t.es, end: t.ef, critical: t.critical, slip: t.slip })) }, pack: pack.json }, null, 2), "application/json"); });
+  $("#b-json").addEventListener("click", () => { download("time-to-first-token.json", JSON.stringify({ inputs: inp, results: { firstTokenMonths: R.firstToken, firstToken: R.liveDate, fullPower: R.fullDate, buildCostMusd: R.costs.site, tenantGpuMusd: R.costs.compute, rentMusdYear: R.lease.rentRange, rentShareOfBuild: R.lease.share, rentLostPerMonthMusd: R.lease.perMonth, opexMusdYear: R.energy.opex, pue: R.energy.pue, wue: R.energy.wue, chillerHours: R.energy.cool.chillerHours, coolantSupplyC: R.energy.cool.supply, approachK: R.energy.cool.approach, weatherStation: R.energy.cool.station, waterMgalYear: R.energy.waterMgal, airSideMw: R.airSide.mw, fanWalls: R.airSide.units, inputNotes: R.inputNotes, tasks: R.tasks.map(t => ({ id: t.id, label: t.label, start: t.es, end: t.ef, critical: t.critical, slip: t.slip })) }, pack: pack.json }, null, 2), "application/json"); });
   $("#b-card").addEventListener("click", () => {
     const c = shareCard(); if (!c) { toast("The card needs the site view"); return; }
     c.toBlob((b) => { const a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = "time-to-first-token-card.png"; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500); toast("Share card downloaded"); }, "image/png");
@@ -543,7 +565,7 @@ export function requestText() {
   const lines = [`TTFT request v1`, `Link: ${location.href}`];
   for (const [k, v] of Object.entries(inp)) lines.push(`${k}: ${k === "levers" ? JSON.stringify(v || {}) : (v ?? "")}`);
   lines.push(`pack: ${pack.json.version}`);
-  lines.push(`result: first_token_months=${R.firstToken.toFixed(1)}; first_token=${R.liveDate}; full_power=${R.fullDate}; capex_site_musd=${R.costs.site[0].toFixed(0)}-${R.costs.site[1].toFixed(0)}; capex_total_musd=${R.costs.total[0].toFixed(0)}-${R.costs.total[1].toFixed(0)}; opex_musd=${R.energy.opex[0].toFixed(0)}-${R.energy.opex[1].toFixed(0)}; pue=${R.energy.pue}; water_mgal=${R.energy.waterMgal.toFixed(1)}`);
+  lines.push(`result: first_token_months=${R.firstToken.toFixed(1)}; first_token=${R.liveDate}; full_power=${R.fullDate}; capex_site_musd=${R.costs.site[0].toFixed(0)}-${R.costs.site[1].toFixed(0)}; capex_total_musd=${R.costs.total[0].toFixed(0)}-${R.costs.total[1].toFixed(0)}; opex_musd=${R.energy.opex[0].toFixed(0)}-${R.energy.opex[1].toFixed(0)}; pue=${R.energy.pue.toFixed(3)}; wue=${R.energy.wue.toFixed(2)}; chiller_hours=${R.energy.cool.chillerHours}; water_mgal=${R.energy.waterMgal.toFixed(1)}`);
   return lines.join("\n");
 }
 
@@ -570,7 +592,7 @@ export function shareCard() {
   const cell = (label, value, col, row) => { const cx = X + col * (RW / 2), cy = 240 + row * 82; x.font = `500 11px ${CARD_SANS}`; x.fillStyle = "#75746E"; ls("0.08em"); x.fillText(label.toUpperCase(), cx, cy); ls("0px"); x.font = `500 22px ${CARD_SANS}`; x.fillStyle = "#17181B"; x.fillText(value, cx, cy + 30); };
   cell("Build cost", `${musd(mid(R.costs.site))}`, 0, 0);
   cell("Rent lost per month late", musd(R.lease.perMonth), 1, 0);
-  cell("Design PUE", R.energy.pue.toFixed(2), 0, 1);
+  cell("Annual PUE", R.energy.pue.toFixed(2), 0, 1);
   cell("Water per year", R.energy.waterMgal < 0.05 ? "None" : `${R.energy.waterMgal < 1 ? R.energy.waterMgal.toFixed(2) : R.energy.waterMgal.toFixed(0)}M gal`, 1, 1);
   x.fillStyle = "#E3DFD5"; x.fillRect(X, 398, RW, 1);
   let y = wrap(`${inp.mw} MW in ${stateName} on ${R.iso}, ${POWER[inp.power].toLowerCase()}, ${REDUND[inp.redund]}, ${COOL[inp.cool].toLowerCase()}, ${R.racks.toLocaleString("en-US")} racks at ${inp.density} kW.`, `400 14px ${CARD_SANS}`, "#17181B", 428, 21);
@@ -606,10 +628,11 @@ function drawRows() {
   const hit = vals.filter(v => (!kindF || v.kind === kindF) && (!q || [v.id, v.label, v.publisher, v.source_title, v.note, v.text, v.category, v.scope].join(" ").toLowerCase().includes(q)));
   const n = (x) => x == null ? "" : typeof x === "number" ? (Math.abs(x) >= 1000 ? x.toLocaleString("en-US") : String(+x.toFixed(3))) : esc(x);
   let s = `<div class="pr ph" role="row"><span>Value</span><span>Number</span><span>Kind</span><span>Source</span><span>Dates</span></div>`;
-  for (const v of hit) {
+  for (let v of hit) {
     const num = v.text && (v.unit === "" || v.unit === "flag" || v.value === 0) ? `<span class="v">${esc(v.text)}</span>` : `<span class="v">${n(v.value)} ${esc(v.unit || "")}</span>${v.low != null || v.high != null ? `<span class="rg">range ${n(v.low ?? v.value)} to ${n(v.high ?? v.value)}</span>` : ""}`;
+    if (v.db_hours) v = { ...v, text: undefined }; // climate rows: show the annual mean, not the hourly bins
     const src = v.source_url ? `<a href="${esc(v.source_url)}" target="_blank" rel="noopener">${esc(v.publisher)}</a><span>${esc(v.source_title || "")}</span>` : `<b>${esc(v.publisher)}</b>`;
-    s += `<div class="pr" role="row"><div class="c-lab"><b>${esc(v.label)}</b><span class="id">${esc(v.id)}</span>${v.note ? `<span class="nt">${esc(v.note)}</span>` : ""}</div><div class="c-num">${num}</div><div class="c-kind"><span class="tag ${v.kind === "sourced" ? "" : v.kind}${v.kind !== "sourced" && v.note ? " has-tip" : ""}"${v.kind !== "sourced" && v.note ? ` tabindex="0" data-tip="${esc(v.note)}"` : ""}>${esc(v.kind)}</span></div><div class="c-src src">${src}</div><div class="c-dt dt">${esc(String(v.published || ""))}<span>read ${esc(v.accessed || "")}</span></div></div>`;
+    s += `<div class="pr" role="row"><div class="c-lab"><b>${esc(v.label)}</b><span class="id">${esc(v.id)}</span>${v.note ? `<span class="nt">${esc(v.note)}</span>` : ""}</div><div class="c-num">${num}</div><div class="c-kind"><span class="tag ${v.kind === "sourced" ? "" : v.kind}${v.kind !== "sourced" && v.note ? " has-tip" : ""}"${v.kind !== "sourced" && v.note ? ` tabindex="0" data-tip="${esc(v.note)}"` : ""}>${esc(v.kind)}</span>${v.uncertain ? ` <span class="tag assumption">uncertain</span>` : ""}</div><div class="c-src src">${src}${v.context_url ? `<a href="${esc(v.context_url)}" target="_blank" rel="noopener">Context page</a>` : ""}</div><div class="c-dt dt">${esc(String(v.published || ""))}<span>read ${esc(v.accessed || "")}</span></div></div>`;
   }
   $("#pack-table").innerHTML = s; $("#q-count").textContent = `${hit.length} of ${vals.length}`;
 }
@@ -619,7 +642,7 @@ function drawRows() {
 // ---------------------------------------------------------------------------------------------------------
 function readUrl(base) {
   const q = new URLSearchParams(location.search); const o = { ...base, levers: {} };
-  for (const [k, key] of Object.entries(URLKEYS)) if (q.has(k)) o[key] = (key === "mw" || key === "density") ? Number(q.get(k)) : q.get(k);
+  for (const [k, key] of Object.entries(URLKEYS)) if (q.has(k)) o[key] = (key === "mw" || key === "density" || key === "ts" || key === "ta") ? Number(q.get(k)) : q.get(k);
   if (q.has("l")) for (const l of q.get("l").split(",")) if (l) o.levers[l] = true;
   if (!o.stress) o.stress = null;
   return o;

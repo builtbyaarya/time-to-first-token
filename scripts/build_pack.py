@@ -17,13 +17,14 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 RES = ROOT / "data" / "research"
-VERSION = "2026.11.11"
+VERSION = "2026.11.13"
 ACCESSED = "2026-10-24"     # read date of the values first collected on 24 Oct 2026
 ACCESSED_RUNA = "2026-11-11"  # read date of the lease, cooling and construction-cost values added on 11 Nov 2026
+ACCESSED_RUNB = "2026-11-13"  # read date of the climate, cooling-plant, lead-time and rack values added on 13 Nov 2026
 FIRST_VERSION = "2026.10.24"
 
 research = {}
-for f in ["pack_power.json", "pack_schedule.json", "pack_cost.json", "pack_lease_cooling.json"]:
+for f in ["pack_power.json", "pack_schedule.json", "pack_cost.json", "pack_lease_cooling.json", "pack_runb.json"]:
     for v in json.load(open(RES / f))["values"]:
         research[v["id"]] = v
 
@@ -39,7 +40,7 @@ def src(rid):
     return v
 
 
-def put(id, label, category, value, unit, kind, scope="US", from_ids=(), low=None, high=None, note="", text=None, **over):
+def put(id, label, category, value, unit, kind, scope="US", from_ids=(), low=None, high=None, note="", text=None, **over):  # over: source fields or extra data (bins)
     """One pack value. Source fields are copied from the first research id in from_ids."""
     if id in IDS:
         raise SystemExit(f"duplicate id {id}")
@@ -183,9 +184,12 @@ m, lo, hi = wk("lead_ups_weeks")
 put("lead_ups_months", "UPS lead time", "lead_time", m, "months", "derived", "US", ("lead_ups_weeks",), lo, hi, note="30 to 48 weeks (contractor survey, secondary) x 12/52.18.")
 m, lo, hi = wk("lead_generator_weeks")
 put("lead_genset_months", "Standby generator lead time", "lead_time", m, "months", "derived", "US", ("lead_generator_weeks", "lead_diesel_genset_weeks"), lo, hi, note="60 to 100 weeks (Cushman & Wakefield) x 12/52.18.")
-m, lo, hi = wk("equipment_lead_time_us_average_weeks")
-for k, lbl in [("chiller", "Chiller and dry cooler lead time"), ("cdu", "CDU lead time"), ("crah", "CRAH unit lead time")]:
-    put(f"lead_{k}_months", lbl, "lead_time", m, "months", "derived", "US", ("equipment_lead_time_us_average_weeks", "capex_cooling_equipment_price_rise_pct"), note="No numeric cooling lead time found; the JLL US average equipment lead time of 42 weeks is used. Cooling equipment prices rose 32% (Cushman & Wakefield).")
+# cooling lead times per equipment type (Terrapin Construction Group, Nov 2026), replacing the one JLL average
+for k, rid, lbl in [("chiller_air", "lead_tcg_air_chiller_weeks", "Air-cooled chiller lead time"), ("chiller_water", "lead_tcg_water_chiller_weeks", "Water-cooled chiller lead time"),
+                    ("drycooler", "lead_tcg_drycooler_weeks", "Dry cooler lead time"), ("tower", "lead_tcg_tower_weeks", "Cooling tower lead time"),
+                    ("cdu", "lead_tcg_cdu_weeks", "CDU lead time"), ("crah", "lead_tcg_fanwall_weeks", "Fan wall and CRAH lead time")]:
+    m, lo, hi = wk(rid)
+    put(f"lead_{k}_months", lbl, "lead_time", m, "months", "derived", "US", (rid,), lo, hi, note=f"{src(rid)['quote'].split(': ')[-1]} weeks (Terrapin Construction Group, a design-build contractor, planning figures from order to shipment); midpoint x 12/52.18.")
 
 # ---------------------------------------------------------------------------------------------------------
 # stress tests and risks
@@ -259,15 +263,23 @@ put("gas_price_usd_per_mmbtu", "Henry Hub natural gas price, 2027", "energy", 3.
 # ---------------------------------------------------------------------------------------------------------
 # compute
 # ---------------------------------------------------------------------------------------------------------
-GPUS = [("gb200", "GB200 NVL72", "rack_gb200_nvl72_kw", "72 GPUs per rack, liquid cooled, 120 to 132 kW"), ("gb300", "GB300 NVL72", "rack_gb300_nvl72_kw", "72 GPUs per rack, liquid cooled, 135 to 155 kW"), ("rubin", "Vera Rubin NVL144", "rack_vera_rubin_nvl144_kw", "144 GPU dies per rack, liquid cooled, 120 to 130 kW (secondary source)")]
+GPUS = [("gb200", "GB200 NVL72", "rack_gb200_nvl72_kw", "72 GPUs per rack, liquid cooled, 120 to 132 kW"), ("gb300", "GB300 NVL72", "rack_gb300_nvl72_kw", "72 GPUs per rack, liquid cooled, 135 to 155 kW"), ("rubin", "Vera Rubin NVL144", "rubin_rack_kw_reports", "144 GPU dies per rack, liquid cooled. Rack power uncertain: NVIDIA has not published a figure and second-hand reports range from 120 to 230 kW"), ("dgxb200", "DGX B200 (air cooled)", "dgx_b200_kw", "8 GPUs per system, air cooled, 2 to 4 systems per rack (28.6 to 57.2 kW)")]
 for id, name, rid, text in GPUS:
     v = src(rid)
-    put(f"gpu_{id}", f"Rack power, {name}", "compute", v["value"], "kW per rack", "sourced", "Global", (rid,), v.get("low"), v.get("high"), text=text)
+    if id == "dgxb200":
+        n = src("dgx_b200_per_rack")
+        put(f"gpu_{id}", f"Rack power, {name}", "compute", round(v["value"] * n["low"], 1), "kW per rack", "derived", "Global", (rid, "dgx_b200_per_rack"), round(v["value"] * n["low"], 1), round(v["value"] * n["high"], 1), text=text, note="NVIDIA: 14.3 kW per DGX B200 system. 2 systems per rack (28.6 kW, the default) to 4 (57.2 kW, which The Register reports is at the limit of air cooling).")
+    elif id == "rubin":
+        put(f"gpu_{id}", f"Rack power, {name}", "compute", v["value"], "kW per rack", "sourced", "Global", (rid, "rack_vera_rubin_nvl144_kw"), v.get("low"), v.get("high"), text=text, uncertain=True, note=v["note"])
+    else:
+        put(f"gpu_{id}", f"Rack power, {name}", "compute", v["value"], "kW per rack", "sourced", "Global", (rid,), v.get("low"), v.get("high"), text=text)
 v = src("gpu_cost_per_mw_gb200")
 put("compute_capex_per_mw__gb200", "GPU racks per MW, GB200 NVL72", "compute", v["value"], "USD million per MW IT", "derived", "Global", ("gpu_cost_per_mw_gb200", "gpu_rack_gb200_price_usd"), v["low"], v["high"], note="About $3M per rack (secondary estimate) x 8.3 racks per MW.")
 p3 = src("gpu_rack_gb300_price_usd"); k3 = src("rack_gb300_nvl72_kw")
 put("compute_capex_per_mw__gb300", "GPU racks per MW, GB300 NVL72", "compute", round(p3["value"] * 1000 / k3["high"], 1), "USD million per MW IT", "derived", "Global", ("gpu_rack_gb300_price_usd", "rack_gb300_nvl72_kw"), round(p3["low"] * 1000 / k3["high"], 1), round(p3["high"] * 1000 / k3["value"], 1), note="$5M to $6.5M per rack (secondary estimate) x 1000 kW / 135 to 155 kW per rack.")
 put("compute_capex_per_mw__rubin", "GPU racks per MW, Vera Rubin NVL144", "compute", round(p3["value"] * 1000 / k3["high"], 1), "USD million per MW IT", "assumption", "Global", (), round(p3["low"] * 1000 / k3["high"], 1), round(p3["high"] * 1000 / k3["value"], 1), note="No public Rubin pricing; the GB300 figure per MW is carried over as an assumption.")
+pb = src("dgx_b200_price_usd"); kb = src("dgx_b200_kw")
+put("compute_capex_per_mw__dgxb200", "GPU systems per MW, DGX B200", "compute", round(pb["value"] / kb["value"] / 1000, 1), "USD million per MW IT", "derived", "Global", ("dgx_b200_price_usd", "dgx_b200_kw"), round(pb["low"] / kb["value"] / 1000, 1), round(pb["high"] / kb["value"] / 1000, 1), note="$515,410 per system (reseller listing, secondary; $450k to $600k street range) / 14.3 kW per system.")
 put("air_cooling_max_kw_per_rack", "Air cooling practical ceiling", "cooling", src("liquid_threshold_air_impractical_kw")["value"], "kW per rack", "sourced", "Global", ("liquid_threshold_air_impractical_kw", "liquid_threshold_dlc_needed_kw"), note="Air cooling is impractical above about 50 kW per rack; direct liquid cooling is needed above 20 kW (Uptime).")
 
 # ---------------------------------------------------------------------------------------------------------
@@ -311,6 +323,43 @@ v = src("fan_wall_unit_kw")
 put("fan_wall_unit_kw", "Fan wall capacity per unit", "cooling", v["value"], "kW per unit", "sourced", "Global", ("fan_wall_unit_kw",), note=v["note"])
 
 # ---------------------------------------------------------------------------------------------------------
+# climate-aware cooling (added 13 Nov 2026). Hourly NREL TMY3 weather per state, binned to 1 C, and the heat path
+# rack loop > CDU > facility loop > plant (chiller plus plate exchanger) > dry cooler or tower. See js/model.js coolingModel.
+# ---------------------------------------------------------------------------------------------------------
+CLIM = json.load(open(RES / "pack_climate.json"))
+for c in CLIM["stations"]:
+    put(f"climate_tmy3__{c['state']}", f"Typical-year hourly weather, {c['station']}", "climate", c["db_mean"], "deg C (annual mean dry-bulb)", "sourced", c["state"],
+        source_title=f"TMY3 hourly file {c['epw']} ({CLIM['source_title']})", source_url=c["url"], publisher="National Renewable Energy Laboratory (TMY3), via the US Department of Energy EnergyPlus weather mirror", published="2008", accessed=ACCESSED_RUNB,
+        quote="", text=c["station"], bin_lo=c["bin_lo"], db_hours=c["db_hours"], wb_hours=c["wb_hours"], wb_mean=c["wb_mean"], db_99_6=c["db_99_6"], wb_99_6=c["wb_99_6"],
+        note=f"8,760 hours of dry-bulb and wet-bulb (wet-bulb computed from dry-bulb, dew point and pressure), counted in 1 C bins. 99.6% hours below {c['db_99_6']} C dry-bulb and {c['wb_99_6']} C wet-bulb." + (f" Station is the {c['note']}." if c["note"] else ""))
+def cv(id, label, rid, unit, val=None, kind="sourced", note=None, lo=None, hi=None, ids=None):
+    v = src(rid)
+    put(id, label, "cooling", v["value"] if val is None else val, unit, kind, "Global" if kind != "assumption" else "US", ids or (rid,), v.get("low") if lo is None else lo, v.get("high") if hi is None else hi, note=note if note is not None else v["note"])
+cv("cool_supply_liquid_c", "Facility water supply temperature, liquid halls (default)", "cdu2300_primary_inlet_c", "deg C", lo=src("ashrae_w_classes_c")["low"], hi=src("ashrae_w_classes_c")["high"], ids=("cdu2300_primary_inlet_c", "ashrae_w_classes_c", "uptime_fws_convergence_c"), note="Default 32 C, the ASHRAE W32 class Vertiv rates its 2.3 MW CDU at, and where Uptime Institute, the data center standards body, says liquid sites are converging. Adjustable from 17 (W17) to 45 C (W45). NVIDIA, the GPU maker, says its Blackwell and Rubin racks accept up to 45 C.")
+cv("cool_supply_air_c", "Chilled water supply to fan walls (air side and air halls)", "fanwall_water_supply_c", "deg C")
+cv("cool_cdu_approach_k", "CDU approach", "cdu_approach_k", "K")
+cv("cool_hx_approach_k", "Plate heat exchanger approach", "hx_approach_k", "K")
+cv("cool_drycooler_approach_k", "Dry cooler approach to dry-bulb (default)", "drycooler_approach_k", "K")
+cv("cool_tower_approach_k", "Cooling tower approach to wet-bulb (default)", "tower_approach_k", "K")
+cv("cool_cop_air", "Air-cooled chiller COP (code minimum, full load)", "cop_air_cooled_chiller", "COP")
+cv("cool_cop_water", "Water-cooled chiller COP (code minimum, full load)", "cop_water_cooled_chiller", "COP")
+cv("cool_fan_drycooler", "Dry cooler fan power per kW rejected", "drycooler_fan_kw_per_kw", "kW per kW", kind="derived")
+cv("cool_fan_tower", "Cooling tower fan power per kW rejected", "tower_fan_kw_per_kw", "kW per kW")
+cv("cool_pump_cdu", "CDU pump power per kW of liquid heat", "cdu_pump_kw_per_kw", "kW per kW", kind="derived")
+put("cool_pump_facility", "Facility water pumps per kW of heat", "cooling", round(src("pump_chw_w_per_gpm")["value"] * 3412 / (500 * 12) / 1000, 4), "kW per kW", "derived", "US", ("pump_chw_w_per_gpm",), note="22 W per gpm (ASHRAE 90.1 Appendix G baseline) at a 12 F loop rise: 3,412 Btu/h per kW / (500 x 12) = 0.569 gpm per kW, x 22 W = 12.5 W per kW. Conservative for warm-water loops, which run a wider rise.")
+put("cool_pump_condenser", "Condenser (tower) water pumps per kW of heat", "cooling", round(src("pump_cw_w_per_gpm")["value"] * 3412 / (500 * 10) / 1000, 4), "kW per kW", "derived", "US", ("pump_cw_w_per_gpm",), note="19 W per gpm (ASHRAE 90.1 Appendix G baseline) at a 10 F range: 0.682 gpm per kW x 19 W = 13.0 W per kW. Towers only; a dry cooler loop shares the facility pumps.")
+cv("cool_fanwall", "Fan wall power per kW of air-side heat", "fanwall_kw_per_kw", "kW per kW", kind="derived")
+u = src("ups_efficiency")
+put("cool_elec_overhead", "Non-cooling overhead: UPS, transformers, lighting", "energy", 0.04, "kW per kW IT", "derived", "US", ("ups_efficiency",), 0.03, 0.06, note=f"UPS at {u['value']:.0%} efficiency (Mitsubishi Electric, a UPS maker) loses {1/u['value']-1:.3f} kW per kW of IT; about 0.01 more for transformers, distribution and lighting is our assumption. ENERGY STAR, the EPA efficiency programme, puts legacy distribution losses at 10 to 12% of total energy, so 0.06 is the high end.")
+e = src("tower_evap_pct_per_10f"); cyc = src("tower_cycles")
+evap = 3600 / (4.186 * 50 / 9) * e["value"] / 100
+put("cool_tower_evap_l_per_kwh", "Cooling tower evaporation per kWh of heat rejected", "cooling", round(evap, 3), "L per kWh heat", "derived", "Global", ("tower_evap_pct_per_10f",), note=f"{e['value']}% of the circulating flow evaporates per 10 F (5.56 K) of range (Delta Cooling Towers, a tower maker): 3,600 kJ / (4.186 x 5.56) = 155 kg of flow per kWh, x 0.0085 = {evap:.2f} L.")
+cv("cool_tower_cycles", "Cooling tower cycles of concentration", "tower_cycles", "cycles")
+a = src("capex_tcg_aircooled_plant_usd_per_ton"); w = src("capex_tcg_towers_plant_usd_per_ton")
+TPM = 1000 / 3.517  # tons of cooling per MW
+put("capex_tower_plant_extra_per_mw", "Extra capex of a cooling-tower plant over a dry-cooler plant", "capex", round((w["value"] - a["value"]) * TPM / 1e6, 2), "USD million per MW IT", "derived", "US", ("capex_tcg_towers_plant_usd_per_ton", "capex_tcg_aircooled_plant_usd_per_ton"), round((w["low"] - a["low"]) * TPM / 1e6, 2), round((w["high"] - a["high"]) * TPM / 1e6, 2), note=f"Terrapin Construction Group installed plant: water-cooled with towers ${w['low']:,} to ${w['high']:,} per ton against air-cooled ${a['low']:,} to ${a['high']:,}; the difference x 284 tons per MW, added to the mechanical line for towers. The air-cooled plant stands in for a warm-water dry-cooler plant, which Terrapin does not price.")
+
+# ---------------------------------------------------------------------------------------------------------
 # context values carried through for the report (not used in arithmetic)
 # ---------------------------------------------------------------------------------------------------------
 CTX = ["ic_gen_request_to_cod_months", "ic_gen_completion_rate_capacity_pct", "ic_queue_total_gw_us", "ercot_large_load_requests_gw", "ercot_large_load_dc_share_pct", "ercot_ll_approved_to_energize_mw", "ercot_ll_operational_peak_mw", "tx_sb6_large_load_threshold_mw", "ercot_ll_security_usd_per_mw", "pjm_peak_growth_2024_2030_gw", "dominion_dc_contracted_gw", "dominion_dc_billing_peak_gw", "georgia_power_ll_pipeline_gw", "aps_committed_large_load_gw", "nv_energy_ll_agreements_gw", "us_peak_growth_2025_2030_gw", "transmission_large_build_years", "gev_gas_backlog_and_slots_gw", "siemens_gas_turbine_booked_out_fy", "air_major_source_threshold_tpy", "air_psd_major_source_other_tpy", "epa_emergency_generator_pte_default_hours", "nox_nsps_kkkka_high_util_lb_per_mmbtu", "xai_memphis_permitted_turbine_mw", "xai_memphis_permit_nox_tpy", "nepa_ea_mean_months", "nepa_eis_median_years", "dc_electricity_us_2023_twh", "dc_electricity_us_2028_twh", "delay_share_projects_late_3mo_2025", "delay_driver_equipment_pct", "delay_driver_power_availability_pct", "delay_driver_permitting_legislation_pct", "capex_inflation_since_2024_pct", "capex_switchgear_price_rise_pct", "capex_global_avg_per_mw_2026", "capex_ai_premium_us_pct", "capex_modular_cost_saving_pct", "cooling_vertiv_prefab_time_saving_pct", "liquid_threshold_dlc_needed_kw", "liquid_cold_plate_capacity_kw", "cooling_cdu_large_capacity_kw", "rack_gb200_nvl72_gpus", "rack_density_avg_2025_kw", "dlc_adoption_2025_pct", "pue_industry_avg_2025", "pue_us_national_2023_lbnl", "outage_cause_power_pct", "supply_chain_not_ready_pct", "benchmark_crusoe_abilene_phase1_months", "construction_building_months_jlarc", "development_cycle_total_years", "redundancy_availability_n_pct", "commissioning_ist_air_cooled_weeks", "interconnection_median_request_to_cod_years"]
@@ -318,6 +367,39 @@ for rid in CTX:
     v = dict(src(rid)); v["id"] = "ctx_" + rid; v["category"] = "context"
     if v["id"] in IDS: continue
     IDS.add(v["id"]); OUT.append(v)
+
+# ---------------------------------------------------------------------------------------------------------
+# original publishers (13 Nov 2026): values first read through a site quoting another site now cite the original
+# page, where the original page states the same figure. Re-checked on ACCESSED_RUNB.
+# ---------------------------------------------------------------------------------------------------------
+ORIGINALS = {
+    "utility_energization_wait_months": ("2026 Global Data Center Outlook", "https://www.jll.com/en-us/insights/global-data-center-outlook", "JLL", "2026-01-05", "the average wait time for a grid connection in primary data center markets exceeds four years"),
+    "ctx_capex_global_avg_per_mw_2026": ("2026 Global Data Center Outlook", "https://www.jll.com/en-us/insights/global-data-center-outlook", "JLL", "2026-01-05", "the average global cost will increase 6% to $11.3 million per MW"),
+    "ctx_capex_inflation_since_2024_pct": ("2026 Data Center Development Cost Guide", "https://www.cushmanwakefield.com/en/united-states/insights/data-center-development-cost-guide", "Cushman & Wakefield", "2026", "up 21% per MW since we published our last report"),
+}
+for v in OUT:
+    if v["id"] in ORIGINALS:
+        t, u, pub, pd, q = ORIGINALS[v["id"]]
+        was = v.get("publisher", "")
+        v.update(source_title=t, source_url=u, publisher=pub, published=pd, accessed=ACCESSED_RUNB, quote=q)
+        v["note"] = (v.get("note") or "") + f" Now cited to the original publisher (first read through {was})."
+# assumptions with no public figure: a context page where one exists, so a reader can see what the guess sits beside
+CONTEXT = {
+    "lead_accelerator_months": ("https://www.scmr.com/article/the-ai-data-center-bill-of-materials-what-procurement-should-lock-first", "Supply Chain Management Review reports flagship GPU systems at about 8 to 16 weeks in some channels in 2026; rack-scale allocations run longer, so 9 months stays our assumption."),
+    "grading_civil_months": ("https://mastt.com/guide/data-center-construction", "The Mastt guide's construction phase contains the civil package but does not split it out."),
+    "cluster_bringup_months": (src("benchmark_xai_colossus_build_days")["source_url"], "Context: xAI's Colossus went from start to first training run in 122 days, which includes bring-up; no separate bring-up figure is published."),
+    "construction_scale_exponent": ("https://jlarc.virginia.gov/pdfs/reports/Rpt598.pdf", "Checked against the 12 to 18 month building in Virginia's JLARC study (the state legislature's review commission) and Meta's 5-year Hyperion campus."),
+    "transmission_build_months": ("", "Line works sit inside the utility energization wait, which already comes from utility and JLL figures; a separate line would double count."),
+    "gas_supply_months": ("", "No public figure for a lateral plus a firm supply agreement at this scale; the range is wide on purpose."),
+    "stress_gpu_months": ("", "One quarter, the usual unit in which GPU allocations are quoted; no public statistic on slips."),
+    "solar_bess_pv_ratio": ("", "Sizing rule for a plant that serves the load around the clock from daytime sun and storage; it sets cost, not schedule."),
+    "air_cooling_fitout_factor": ("https://terrapincg.com/news/data-center-chiller-cost-lead-times-2026", "Lead times now differ by equipment (Terrapin Construction Group), and the plan carries those; no source says the installation itself is faster or slower."),
+}
+for v in OUT:
+    if v["id"] in CONTEXT and v["kind"] == "assumption":
+        u, n = CONTEXT[v["id"]]
+        if u: v["context_url"] = u
+        v["note"] = (v.get("note") or "") + " " + n
 
 pack = {
     "version": VERSION, "accessed": ACCESSED_RUNA,

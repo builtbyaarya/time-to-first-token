@@ -338,3 +338,9 @@ body.mode-beginner .eng { display: none !important; }
 
 .tbl .rg { display: none; }
 @media (max-width: 640px) { .tbl .rg { display: block; } }
+
+/* climate-aware cooling inputs (engineer mode) */
+.climate { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
+.climate-in { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.climate-in .hint { margin-top: 4px; }
+@media (max-width: 480px) { .climate-in { grid-template-columns: 1fr; } }

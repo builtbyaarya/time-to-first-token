@@ -33,7 +33,7 @@ export class Pack {
 }
 
 export const DEFAULT_INPUTS = {
-  state: "TX", mw: 100, power: "grid", bridge: "gas_turbine", redund: "n1", cool: "liquid",
+  state: "TX", mw: 100, power: "grid", bridge: "gas_turbine", redund: "n1", cool: "liquid", ts: null, ta: null,
   gpu: "gb200", density: 120, start: "2026-11", target: "2028-06", stress: null, levers: {},
 };
 
@@ -74,6 +74,12 @@ export function normalizeInputs(pack, raw) {
   const [lo, hi] = densityRange(pack, inp.gpu);
   const d0 = Number(inp.density);
   if (!isFinite(d0) || d0 < lo || d0 > hi) { inp.density = !isFinite(d0) ? lo : Math.min(hi, Math.max(lo, d0)); notes.push(`Rack density set to ${inp.density} kW, inside the published ${lo} to ${hi} kW for this rack.`); }
+  const cb = coolingBounds(pack, inp.cool);
+  for (const [k, lo2, hi2, def, lbl] of [["ts", cb.ts[0], cb.ts[1], cb.ts[2], "Coolant supply temperature"], ["ta", cb.ta[0], cb.ta[1], cb.ta[2], "Approach"]]) {
+    if (inp[k] == null || inp[k] === "") { inp[k] = null; continue; }
+    const x = Number(inp[k]); if (!isFinite(x)) { inp[k] = null; continue; }
+    if (x < lo2 || x > hi2) { inp[k] = Math.min(hi2, Math.max(lo2, x)); notes.push(`${lbl} set to ${inp[k]}, inside the ${lo2} to ${hi2} range.`); } else inp[k] = x;
+  }
   const rules = coolingRules(pack, inp);
   if (inp.cool === "air" && !rules.airAllowed) { inp.cool = "liquid"; notes.push(`Cooling switched from air to liquid with dry coolers: ${rules.reason}`); }
   return { inp, notes, rules: coolingRules(pack, inp) };
@@ -123,9 +129,10 @@ export function plan(pack, rawInp) {
     switchgear: P.v("lead_switchgear_months"),
     ups: P.v("lead_ups_months"),
     genset: P.v("lead_genset_months"),
-    chiller: inp.cool === "air" ? P.v("lead_crah_months") : P.v("lead_chiller_months"),
+    chiller: inp.cool === "liquid_tower" ? P.v("lead_chiller_water_months") : P.v("lead_chiller_air_months"),
+    reject: inp.cool === "liquid_tower" ? P.v("lead_tower_months") : P.v("lead_drycooler_months"),
     cdu: inp.cool === "air" ? 0 : P.v("lead_cdu_months"),
-    fanwall: inp.cool === "air" ? 0 : P.v("lead_crah_months"),
+    fanwall: P.v("lead_crah_months"),
   };
   if (inp.redund === "2n" || inp.redund === "tier4") { d.electrical *= P.v("redundancy_2n_electrical_time_factor"); }
   if (inp.redund === "tier4") { d.cx5 += P.v("tier4_cx_extra_months"); }
@@ -168,14 +175,15 @@ export function plan(pack, rawInp) {
   // long-lead orders are released from the basis of design, half way through the design package
   add("switchgear", "Switchgear and UPS, order and lead time", "electrical", Math.max(dur("switchgear"), dur("ups")), [["design", 0.5]], { lead: true });
   add("genset", "Standby generators, order and lead time", "electrical", dur("genset"), [["design", 0.5]], { lead: true });
-  add("chiller", inp.cool === "air" ? "CRAH units, order and lead time" : "Chillers or dry coolers, order and lead time", "cooling", dur("chiller"), [["design", 0.5]], { lead: true });
+  add("chiller", inp.cool === "liquid_tower" ? "Water-cooled chillers, order and lead time" : "Air-cooled chillers, order and lead time", "cooling", dur("chiller"), [["design", 0.5]], { lead: true });
+  add("reject", inp.cool === "liquid_tower" ? "Cooling towers, order and lead time" : "Dry coolers, order and lead time", "cooling", dur("reject"), [["design", 0.5]], { lead: true });
   if (d.cdu) add("cdu", "CDUs and loop parts, order and lead time", "cooling", dur("cdu"), [["design", 0.5]], { lead: true });
   // liquid racks still send part of their heat to air, so a liquid hall also needs fan walls (CRAH) for that share
-  if (d.fanwall) add("fanwall", "Fan walls for the air-side heat, order and lead time", "cooling", dur("fanwall"), [["design", 0.5]], { lead: true });
+  add("fanwall", inp.cool === "air" ? "Fan walls, order and lead time" : "Fan walls for the air-side heat, order and lead time", "cooling", dur("fanwall"), [["design", 0.5]], { lead: true });
   add("gpulead", "Accelerator order and allocation", "compute", dur("gpuLead"), [["design", 0.5]], { lead: true });
   // fit-out starts once the shell is weather-tight (about two thirds through), white space once the fit-outs are half done
   add("electrical", "Electrical fit-out: switchgear, UPS, busway", "electrical", dur("electrical"), [["shell", 0.67], "switchgear"]);
-  add("mechanical", inp.cool === "air" ? "Mechanical fit-out: chillers, CRAH" : "Mechanical fit-out: coolers, CDUs, liquid loop, fan walls", "cooling", dur("mechanical"), [["shell", 0.67], "chiller", ...(d.cdu ? ["cdu"] : []), ...(d.fanwall ? ["fanwall"] : [])]);
+  add("mechanical", inp.cool === "air" ? "Mechanical fit-out: chillers, dry coolers, fan walls" : "Mechanical fit-out: coolers, CDUs, liquid loop, fan walls", "cooling", dur("mechanical"), [["shell", 0.67], "chiller", "reject", ...(d.cdu ? ["cdu"] : []), "fanwall"]);
   add("whitespace", "White space: rows, containment, power and liquid drops", "whitespace", dur("whitespace"), [["electrical", 0.5], ["mechanical", 0.5]]);
   add("cx12", "Cx L1 to L2: factory witness and receipt", "commissioning", dur("cx12"), [["switchgear", 0.8], ["chiller", 0.8]]);
   // functional tests need the standby generators set and permitted, so gensets and the air permit gate L3 to L4
@@ -260,6 +268,7 @@ export function costModel(pack, inp, iso) {
   const line = (label, id, lo, hi, tag) => lines.push({ label, id, lo, hi, tag });
   const fac = (id) => [P.lo(id) * mw * redundF * coolF * metroF, P.hi(id) * mw * redundF * coolF * metroF];
   for (const l of (pack.json.capex_lines || [])) line(l.label, l.id, ...fac(l.id), "range");
+  if (inp.cool === "liquid_tower" && P.has("capex_tower_plant_extra_per_mw")) { const m = lines.find(l => l.id === "capex_mechanical_per_mw"); if (m) { m.lo += P.lo("capex_tower_plant_extra_per_mw") * mw * redundF * metroF; m.hi += P.hi("capex_tower_plant_extra_per_mw") * mw * redundF * metroF; m.towerExtra = true; } }
   const facTotal = lines.reduce((a, l) => [a[0] + l.lo, a[1] + l.hi], [0, 0]);
   if (inp.power !== "grid") {
     const k = inp.bridge; const share = inp.power === "bridge" ? 1 : P.v("hybrid_onsite_share");
@@ -282,9 +291,54 @@ export function costModel(pack, inp, iso) {
 // ---------------------------------------------------------------------------------------------------------
 // energy, PUE, water, opex ($M per year)
 // ---------------------------------------------------------------------------------------------------------
+// ---------------------------------------------------------------------------------------------------------
+// climate-aware cooling. Heat path: rack loop > CDU > facility loop > plant (chiller plus plate exchanger) >
+// dry cooler or cooling tower. Hour by hour over the state's typical year (NREL TMY3, binned to 1 C):
+// the outdoor device can make water at outdoor temperature + its approach (dry-bulb for dry coolers, wet-bulb
+// for towers). If that water, plus the plate exchanger approach, is warmer than the supply the loop needs, the
+// chiller runs that hour at its rated COP; otherwise only fans and pumps run. A liquid hall has two loops: the
+// liquid share at the facility supply temperature, and the share that still goes to air (fan walls) at the
+// fan-wall water temperature. An air hall has only the second loop.
+// Reads: climate_tmy3__<state>, cool_* values, liquid_air_heat_share, pue__ / wue__ (LBNL, for comparison).
+// ---------------------------------------------------------------------------------------------------------
+export function coolingBounds(pack, cool) {
+  const P = pack; const g = (id) => { const x = P.get(id); return x ? [x.low ?? x.value, x.high ?? x.value, x.value] : [0, 0, 0]; };
+  return { ts: cool === "air" ? g("cool_supply_air_c") : g("cool_supply_liquid_c"), ta: cool === "liquid_tower" ? g("cool_tower_approach_k") : g("cool_drycooler_approach_k") };
+}
+export function coolingModel(pack, inp, override = {}) {
+  const P = pack, cool = override.cool || inp.cool, b = coolingBounds(pack, cool);
+  const supply = override.ts ?? (inp.cool === cool ? inp.ts : null) ?? b.ts[2];
+  const approach = override.ta ?? (inp.cool === cool ? inp.ta : null) ?? b.ta[2];
+  const clim = P.get(`climate_tmy3__${override.state || inp.state}`);
+  const tower = cool === "liquid_tower", air = cool === "air";
+  const airShare = air ? 1 : P.v("liquid_air_heat_share");
+  const tAir = air ? supply : P.v("cool_supply_air_c");
+  const hx = P.v("cool_hx_approach_k"), cdu = P.v("cool_cdu_approach_k");
+  const cop = tower ? P.v("cool_cop_water") : P.v("cool_cop_air");
+  const loops = air ? [{ q: 1, s: supply }] : [{ q: 1 - airShare, s: supply }, { q: airShare, s: tAir }];
+  const hist = clim ? (tower ? clim.wb_hours : clim.db_hours) : null;
+  let chillerHours = 0, comp = 0, hours = 0, airLoopHours = 0;
+  if (hist) hist.forEach((h, i) => { if (!h) return; const t = clim.bin_lo + i + 0.5; const cw = t + approach + hx; hours += h;
+    loops.forEach((L, k) => { if (cw > L.s) { comp += h * L.q / cop; if (k === 0) chillerHours += h; else airLoopHours += h; } }); });
+  comp = hours ? comp / hours : 0;            // compressor kW per kW of IT, averaged over the year
+  const fan = (tower ? P.v("cool_fan_tower") : P.v("cool_fan_drycooler")) * (1 + comp);
+  const pumps = (air ? 0 : P.v("cool_pump_cdu") * (1 - airShare)) + P.v("cool_pump_facility") + (tower ? P.v("cool_pump_condenser") : 0);
+  const fanwall = P.v("cool_fanwall") * airShare;
+  const elec = P.v("cool_elec_overhead");
+  const coolingKw = fan + pumps + fanwall + comp;
+  const pue = 1 + elec + coolingKw;
+  const heat = 1 + coolingKw;                 // heat the plant rejects per kWh of IT: IT plus the cooling energy itself
+  const wue = tower ? P.v("cool_tower_evap_l_per_kwh") * (1 + 1 / (P.v("cool_tower_cycles") - 1)) * heat : 0;
+  const lbnl = { pue: P.v(`pue__${cool}`), wue: P.v(`wue__${cool}`) };
+  return { cool, supply, approach, hx, cdu, rackInlet: air ? null : supply + cdu, freeBelow: supply - approach - hx, freeBelowAir: tAir - approach - hx,
+    outdoor: tower ? "wet-bulb" : "dry-bulb", chillerHours, airLoopHours, hours, comp, fan, pumps, fanwall, elec, pue, wue, cop, lbnl,
+    station: clim?.text || "", bounds: b, climateMissing: !clim };
+}
+
 export function energyModel(pack, inp) {
   const P = pack, mw = inp.mw;
-  const pue = P.v(`pue__${inp.cool}`), wue = P.v(`wue__${inp.cool}`);
+  const cool = coolingModel(pack, inp);
+  const pue = cool.pue, wue = cool.wue;
   const util = P.v("it_utilization");
   const priceC = P.vs("industrial_price_c_per_kwh", inp.state); // cents per kWh
   const mwhYear = mw * util * 8760 * pue;
@@ -297,7 +351,7 @@ export function energyModel(pack, inp) {
   const elecGrid = elecM * (1 - onsiteShare);
   const fuel = inp.power === "hybrid" ? onsiteFuel(pack, inp, mwhYear, onsiteShare) : 0;
   const bridgeFuelYear = inp.power === "bridge" ? onsiteFuel(pack, inp, mwhYear, 1) : 0;
-  return { pue, wue, util, priceC, mwhYear, elecM, elecGrid, onsiteShare, waterMgal, staff: [staffLo, staffHi], fuel, bridgeFuelYear,
+  return { pue, wue, cool, util, priceC, mwhYear, elecM, elecGrid, onsiteShare, waterMgal, staff: [staffLo, staffHi], fuel, bridgeFuelYear,
     opex: [elecGrid + staffLo + fuel, elecGrid + staffHi + fuel] };
 }
 function onsiteFuel(P, inp, mwhYear, share) {
@@ -388,7 +442,12 @@ export function exportRows(pack, inp, r) {
   rows.push(["result", "capex_facility_musd", mid(r.costs.facility).toFixed(0), r.costs.facility[0].toFixed(0), r.costs.facility[1].toFixed(0), "USD million", "derived", "", ""]);
   rows.push(["result", "opex_musd_per_year", mid(r.energy.opex).toFixed(0), r.energy.opex[0].toFixed(0), r.energy.opex[1].toFixed(0), "USD million per year, steady state", "derived", "", ""]);
   if (r.energy.bridgeFuelYear) rows.push(["result", "bridge_fuel_musd_first_year", r.energy.bridgeFuelYear.toFixed(0), "", "", "USD million, while on bridge power", "derived", "", ""]);
-  rows.push(["result", "pue", r.energy.pue, "", "", "", "sourced", "", ""]);
+  rows.push(["result", "pue_annual", r.energy.pue.toFixed(3), "", "", "", "derived", "", ""]);
+  rows.push(["result", "wue_annual_l_per_kwh_it", r.energy.wue.toFixed(2), "", "", "L per kWh of IT", "derived", "", ""]);
+  rows.push(["result", "chiller_hours_per_year", r.energy.cool.chillerHours, "", "", "hours of 8760", "derived", "", ""]);
+  rows.push(["result", "coolant_supply_c", r.energy.cool.supply, "", "", "deg C", "input", "", ""]);
+  rows.push(["result", "approach_k", r.energy.cool.approach, "", "", "K", "input", "", ""]);
+  rows.push(["result", "weather_station", r.energy.cool.station, "", "", "", "sourced", "NREL TMY3", ""]);
   rows.push(["result", "water_mgal_per_year", r.energy.waterMgal.toFixed(1), "", "", "million US gallons per year", "derived", "", ""]);
   for (const t of r.tasks) rows.push(["task", t.id, t.label, t.es.toFixed(1), t.ef.toFixed(1), "months from start", t.critical ? "critical" : "float", "", ""]);
   for (const v of pack.json.values) rows.push(["pack:" + v.kind, v.id, v.value ?? v.text ?? "", v.low ?? "", v.high ?? "", v.unit || "", v.kind, v.publisher, v.source_url]);

@@ -1,5 +1,19 @@
 # Changelog
 
+## 2.1.0, 13 November 2026
+
+Climate-aware cooling and finished sourcing. Data pack 2026.11.13: 257 values (169 sourced, 70 derived, 18 assumptions).
+
+Cooling follows the weather. PUE and water use are now worked out hour by hour from a typical year of weather for each state (NREL TMY3, 8,760 hours, one station per state), through the heat path rack loop, CDU, facility loop, chiller with a free-cooling plate exchanger, and dry coolers or towers. The chiller runs only in the hours the outdoor air cannot do the job. This fixes the old result that dry coolers used less power than towers in every state: towers now save power everywhere and most in hot or humid states (Arizona, Texas, Tennessee, Georgia), and dry coolers save water. Every temperature, approach, fan, pump and chiller figure is sourced (Vertiv, ASHRAE, API Heat Transfer, a University of Stuttgart study of makers' data, Kelvion, ASHRAE 90.1). Engineer mode shows chiller hours, annual PUE and WUE, and two inputs: coolant supply temperature (17 to 45 C, default 32) and the dry cooler or tower approach. Beginner mode shows the resulting PUE and water use. The study has a new Climate and cooling section.
+
+Air can be compared. The DGX B200, NVIDIA's air-cooled system (14.3 kW each, 2 to 4 a rack), is in the pack, so air is selectable at 50 kW a rack or less.
+
+Vera Rubin rack power is marked uncertain: NVIDIA has not published a figure, and second-hand reports run from 120 to 230 kW.
+
+Cooling lead times per equipment type (Terrapin Construction Group, November 2026) replace the single 42-week average: air-cooled chillers, water-cooled chillers, dry coolers, towers, CDUs and fan walls each have their own order in the schedule. A tower plant costs more than a dry-cooler plant, added to the mechanical line.
+
+Sources. Three values that were read through a site quoting another now cite the original (JLL's 2026 outlook for the grid wait and the global cost per MW, Cushman & Wakefield's 2026 cost guide for the 21% rise). Nine assumptions carry a clearer note, five with a context page. Old share links still work.
+
 ## 2.0.0, 11 November 2026
 
 A new page and three model fixes. Data pack 2026.11.11: 216 values (141 sourced, 57 derived, 18 assumptions).

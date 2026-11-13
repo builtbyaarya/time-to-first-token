@@ -425,7 +425,7 @@ def build_tex(R, inp, pdflatex=False):
     L = R["lease"]
     A(f"The developer's build cost (land, building, power and cooling) is {musd(cap['site'][0])} to {musd(cap['site'][1])}: construction at the \\$14 to \\$16 per watt that Turner \\& Townsend, a construction cost consultancy, reports for the most advanced US AI facilities{C.c('capex_shell_per_mw')}, plus land, scaled by the redundancy and cooling factors in Section 7. "
       f"The tenant brings its own {tex(gpu)} racks{C.c('lease_tenant_brings_compute')}, which cost it a further {musd(cap['compute'][0])} to {musd(cap['compute'][1])}{C.c('compute_capex_per_mw__' + inp['gpu'])} and sit outside the build cost. "
-      f"Steady-state opex runs {musd(en['opex'][0])} to {musd(en['opex'][1])} a year at a design PUE of {en['pue']:.2f}{C.c('pue__' + inp['cool'])} and {en['waterMgal']:.{0 if en['waterMgal'] >= 1 else 2}f} million gallons of water a year{C.c('wue__' + inp['cool'])}.")
+      f"Steady-state opex runs {musd(en['opex'][0])} to {musd(en['opex'][1])} a year at an annual PUE of {en['pue']:.2f}{C.c('climate_tmy3__' + inp['state'], 'pue__' + inp['cool'])} and {en['waterMgal']:.{0 if en['waterMgal'] >= 1 else 2}f} million gallons of water a year{C.c('climate_tmy3__' + inp['state'])}.")
     A(f"On a {L['termYears']:.0f}-year triple-net lease at the rent Hut 8, a developer that builds AI data centers and leases them, signed at River Bend{C.c('rent_per_mw_year')}, the site earns about {musd(L['rentYear'])} a year, {L['share'] * 100:.1f}\\% of the build cost each year, so every month of delay costs the developer about {musd(L['perMonth'])} of rent."
       + (f" At the planned date that is {L['lateMonths']:.0f} months late against the target, or about {musd(L['lostVsTarget'])} of rent." if L['lateMonths'] >= 0.5 else ""))
     for n_ in R.get("inputNotes", []):
@@ -523,8 +523,8 @@ def build_tex(R, inp, pdflatex=False):
         ("Accelerator racks", f"{tex(gpu)}, {tex(g['text'])}", C.c('gpu_' + inp['gpu'])),
         ("Rack density", f"{num(inp['density'])} kW per rack, {num(racks)} racks", "input; count derived"),
         ("Cooling", tex(COOL_LABEL[inp['cool']]) + (f"; air cooling stops at {C.val('air_cooling_max_kw_per_rack', unit=False)} kW per rack" if inp['cool'] == 'air' else f"; about {R['airSide']['share'] * 100:.0f}\\% of the heat ({R['airSide']['mw']:.0f} MW) still goes to air, taken by about {R['airSide']['units']} fan walls of {R['airSide']['unitKw']:.0f} kW"), C.c('air_cooling_max_kw_per_rack') if inp['cool'] == 'air' else C.c('liquid_air_heat_share') + C.c('fan_wall_unit_kw')),
-        ("Design PUE", f"{en['pue']:.2f}", C.c('pue__' + inp['cool'])),
-        ("WUE", f"{en['wue']} L per kWh of IT", C.c('wue__' + inp['cool'])),
+        ("Annual PUE", f"{en['pue']:.2f}, from a typical year of hourly weather (see Climate and cooling)", C.c('climate_tmy3__' + inp['state'])),
+        ("WUE", f"{en['wue']:.2f} L per kWh of IT", C.c('cool_tower_evap_l_per_kwh') if inp['cool'] == 'liquid_tower' else ""),
         ("IT utilization", f"{C.val('it_utilization', 2, unit=False)} of rated", ""),
         ("Redundancy", {"n1": "N+1", "2n": "2N, fault tolerant", "tier4": "2N with Uptime Tier IV certification"}[inp['redund']] + (f", capex factor {cap['redundF']:.2f}" if cap['redundF'] != 1 else ""), C.c('redundancy_2n_capex_factor', 'redundancy_tier4_capex_factor') if inp['redund'] != 'n1' else ""),
         ("Generation sizing", f"{C.val('onsite_oversize_factor', 2, unit=False)} kW per kW IT, applied to the onsite plant; standby generators per the redundancy choice", ""),
@@ -536,6 +536,24 @@ def build_tex(R, inp, pdflatex=False):
     if R.get("airWarning"):
         A(r"\textbf{Note.} " + tex(R["airWarning"]))
     A(f"Liquid cooling is the industry's direction for these densities: direct liquid cooling is needed above about {C.val('ctx_liquid_threshold_dlc_needed_kw', unit=False)} kW per rack and cold plates carry {C.val('ctx_liquid_cold_plate_capacity_kw', unit=False)} kW, while the survey average rack today is {C.val('ctx_rack_density_avg_2025_kw', unit=False)} kW and {C.val('ctx_dlc_adoption_2025_pct', unit=False)}\\% of operators have adopted it.")
+
+
+    # ---------------------------------------------------------------- 5b climate and cooling
+    ck = en["cool"]; cmp = R["coolingCompare"]
+    A(r"\section{Climate and cooling}")
+    A(f"The cooling energy depends on the weather. The study runs a typical year of hourly weather for {tex(ck['station'])}{C.c('climate_tmy3__' + inp['state'])}, from NREL's TMY3 data set (NREL is the US national renewable energy lab), through the heat path: rack loop, CDU, facility loop, plant (chiller plus a plate exchanger for free cooling), and dry coolers or cooling towers. "
+      f"Dry coolers can only cool water to the outdoor dry-bulb plus their approach; towers evaporate water and reach the wet-bulb plus theirs, which is lower, so towers need the chiller less and use less power, and dry coolers use no water.")
+    A(r"\begin{equation}T_{\mathrm{avail}} = T_{\mathrm{out}} + \Delta T_{\mathrm{rej}} + \Delta T_{\mathrm{HX}}, \qquad \text{chiller on when } T_{\mathrm{avail}} > T_{\mathrm{supply}}\end{equation}")
+    A(r"\begin{equation}\mathrm{PUE} = 1 + e_{\mathrm{elec}} + f_{\mathrm{fans}}\,(1 + c) + p_{\mathrm{pumps}} + w\,s_{\mathrm{air}} + c, \qquad c = \frac{1}{8760}\sum_{h} \frac{q_h}{\mathrm{COP}}\end{equation}")
+    A(f"Here $T_{{\\mathrm{{out}}}}$ is the hour's {ck['outdoor']}, $\\Delta T_{{\\mathrm{{rej}}}} = {ck['approach']}$ K{C.c('cool_tower_approach_k' if inp['cool'] == 'liquid_tower' else 'cool_drycooler_approach_k')}, $\\Delta T_{{\\mathrm{{HX}}}} = {ck['hx']}$ K{C.c('cool_hx_approach_k')}, and $T_{{\\mathrm{{supply}}}} = {ck['supply']}$ C{C.c('cool_supply_air_c' if inp['cool'] == 'air' else 'cool_supply_liquid_c')}"
+      + ("" if inp['cool'] == 'air' else f", which gives racks {ck['rackInlet']} C after the CDU's {ck['cdu']} K approach{C.c('cool_cdu_approach_k')}")
+      + f". Free cooling covers every hour with {ck['outdoor']} below {ck['freeBelow']:.0f} C; in the other {num(ck['chillerHours'])} hours the chiller runs at COP {ck['cop']:.2f}, the code minimum{C.c('cool_cop_water' if inp['cool'] == 'liquid_tower' else 'cool_cop_air')}. "
+      f"Non-cooling overhead $e_{{\\mathrm{{elec}}}} = {ck['elec']:.2f}${C.c('cool_elec_overhead')}; fans $f = {ck['fan'] / (1 + ck['comp']):.4f}$ kW per kW rejected{C.c('cool_fan_tower' if inp['cool'] == 'liquid_tower' else 'cool_fan_drycooler')}; pumps {ck['pumps']:.3f}{C.c('cool_pump_cdu', 'cool_pump_facility', 'cool_pump_condenser')}; fan walls {ck['fanwall']:.3f}{C.c('cool_fanwall')}; compressor $c = {ck['comp']:.3f}$.")
+    A(r"\begin{table}[!htb]\caption{The same site under each cooling type, typical-year weather, each at its default temperatures" + (" (the chosen type at the chosen ones)" if inp.get('ts') or inp.get('ta') else "") + r".}\centering\small\begin{tabular}{@{}lrrrr@{}}\toprule Cooling & Supply, C & Chiller hours & Annual PUE & WUE, L/kWh \\\midrule")
+    for c in cmp:
+        A(f"{tex(COOL_LABEL[c['cool']])}{' (chosen)' if c['cool'] == inp['cool'] else ''} & {c['supply']:g} & {num(c['chillerHours'])} & {c['pue']:.2f} & {c['wue']:.2f} \\\\")
+    A(r"\bottomrule\end{tabular}\end{table}")
+    A(f"For comparison, LBNL's design values for this design are PUE {V['pue__' + inp['cool']]['value']:.2f} and WUE {V['wue__' + inp['cool']]['value']:.2f}{C.c('pue__' + inp['cool'])}; LBNL assumes warmer water (ASHRAE class W45) for its dry-cooler case. Chillers are taken at their rated efficiency and fans at full power all year, so the annual values lean high.")
 
     # ---------------------------------------------------------------- 6 schedule
     A(r"\section{Schedule and critical path}")
@@ -555,7 +573,7 @@ def build_tex(R, inp, pdflatex=False):
         f"electrical fit-out {C.val('electrical_fitout_months')}", f"mechanical fit-out {C.val('mechanical_fitout_months')}", f"white space {C.val('whitespace_fitout_months')}",
         f"commissioning L1 to L4 {C.val('cx_l1_l2_months')} plus {C.val('cx_l3_l4_months')}", f"L5 integrated systems test {C.val('cx_l5_ist_months' if inp['cool'] != 'air' else 'cx_l5_ist_months_air')}",
         f"rack install {C.val('gpu_install_months_per_100mw')} per 100 MW", f"bring-up {C.val('cluster_bringup_months')}"]) + ". "
-      + f"Long-lead orders: switchgear {C.val('lead_switchgear_months')}, UPS {C.val('lead_ups_months')}, standby generators {C.val('lead_genset_months')}, cooling equipment {C.val('lead_chiller_months')}. "
+      + f"Long-lead orders: switchgear {C.val('lead_switchgear_months')}, UPS {C.val('lead_ups_months')}, standby generators {C.val('lead_genset_months')}, chillers {C.val('lead_chiller_water_months' if inp['cool'] == 'liquid_tower' else 'lead_chiller_air_months')}, {'cooling towers ' + C.val('lead_tower_months') if inp['cool'] == 'liquid_tower' else 'dry coolers ' + C.val('lead_drycooler_months')}, CDUs {C.val('lead_cdu_months')}, fan walls {C.val('lead_crah_months')}. "
       + f"For comparison, JLARC puts one building at {C.val('ctx_construction_building_months_jlarc')} and the full development cycle runs {C.val('ctx_development_cycle_total_years')}; Crusoe's Abilene first phase went from start to 200 MW live in {C.val('ctx_benchmark_crusoe_abilene_phase1_months')}.")
 
     # ---------------------------------------------------------------- 7 capex and opex
@@ -576,7 +594,7 @@ def build_tex(R, inp, pdflatex=False):
     A("Electricity is the first line of opex:")
     A(r"\begin{equation}E = P_{\mathrm{IT}} \, u \, \mathrm{PUE} \times 8760\,\mathrm{h}, \qquad \mathrm{Opex}_{\mathrm{elec}} = E \, p\end{equation}")
     A(f"With $u = {en['util']}$, $\\mathrm{{PUE}} = {en['pue']}$ and $p = {en['priceC']:.2f}$ cents per kWh, $E = {en['mwhYear'] / 1000:.0f}$ GWh a year" + (f", of which the grid serves {Math(1 - en['onsiteShare'])}, so the bill is {musd(en['elecGrid'])} and the onsite share burns {musd(en['fuel'])} of gas" if inp['power'] == 'hybrid' else f" and the bill is {musd(en['elecGrid'])}" + (f" at steady state; while on bridge power the plant burns about {musd(en['bridgeFuelYear'])} of gas a year instead" if inp['power'] == 'bridge' else "")) + ". "
-      f"Staff, maintenance and other opex is \\$M {V['opex_staff_maint_per_mw_year']['low']:.1f} to {V['opex_staff_maint_per_mw_year']['high']:.1f} per MW-year{C.c('opex_staff_maint_per_mw_year')} ({note('opex_staff_maint_per_mw_year')}). The utilization and PUE carry published ranges (0.6 to 0.8; PUE {V['pue__' + inp['cool']].get('low', en['pue'])} to {V['pue__' + inp['cool']].get('high', en['pue'])}); the electricity line uses the central values.")
+      f"Staff, maintenance and other opex is \\$M {V['opex_staff_maint_per_mw_year']['low']:.1f} to {V['opex_staff_maint_per_mw_year']['high']:.1f} per MW-year{C.c('opex_staff_maint_per_mw_year')} ({note('opex_staff_maint_per_mw_year')}). The utilization and PUE carry published ranges (0.6 to 0.8; the PUE is the climate model's annual value, {en['pue']:.2f}); the electricity line uses the central values.")
     A(r"\begin{table}[!htb]\caption{Opex, \$ million a year, steady state.}\centering\small\begin{tabular}{@{}lrr@{}}\toprule Item & Low & High \\\midrule")
     A(f"Electricity{', grid share' if en['onsiteShare'] else ''} & {num(en['elecGrid'])} & {num(en['elecGrid'])} \\\\")
     if en["fuel"]:
@@ -586,7 +604,7 @@ def build_tex(R, inp, pdflatex=False):
     A(f"Staff, maintenance and other & {num(en['staff'][0])} & {num(en['staff'][1])} \\\\")
     A(f"\\textbf{{Total}} & \\textbf{{{num(en['opex'][0])}}} & \\textbf{{{num(en['opex'][1])}}} \\\\")
     A(r"\bottomrule\end{tabular}\end{table}")
-    A(f"Water: $W = P_{{\\mathrm{{IT}}}}\\, u \\times 8760 \\times \\mathrm{{WUE}}$ gives {en['waterMgal']:.{0 if en['waterMgal'] >= 1 else 2}f} million US gallons a year at a WUE of {en['wue']} L per kWh{C.c('wue__' + inp['cool'])}; {C.who('ctx_pue_us_national_2023_lbnl')}, puts the US fleet at a PUE of {C.val('ctx_pue_us_national_2023_lbnl', 2, unit=False)}.")
+    A(f"Water: $W = P_{{\\mathrm{{IT}}}}\\, u \\times 8760 \\times \\mathrm{{WUE}}$ gives {en['waterMgal']:.{0 if en['waterMgal'] >= 1 else 2}f} million US gallons a year at an annual WUE of {en['wue']:.2f} L per kWh; {C.who('ctx_pue_us_national_2023_lbnl')}, puts the US fleet at a PUE of {C.val('ctx_pue_us_national_2023_lbnl', 2, unit=False)}.")
 
     # ---------------------------------------------------------------- 8 sensitivities
     A(r"\section{Sensitivities}")

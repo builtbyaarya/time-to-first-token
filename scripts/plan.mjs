@@ -3,12 +3,13 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-import { Pack, DEFAULT_INPUTS, plan, levers, risks, STAGES, STRESSES } from "../js/model.js";
+import { Pack, DEFAULT_INPUTS, plan, levers, risks, STAGES, STRESSES, coolingModel } from "../js/model.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const pack = new Pack(JSON.parse(readFileSync(join(here, "..", "data", "pack.json"), "utf8")));
 const inp = { ...DEFAULT_INPUTS, ...(pack.json.defaults || {}), ...JSON.parse(process.argv[2] || "{}") };
 inp.mw = Number(inp.mw); inp.density = Number(inp.density); if (!inp.levers) inp.levers = {};
+for (const k of ["ts", "ta"]) inp[k] = inp[k] == null || inp[k] === "" ? null : Number(inp[k]);
 const R = plan(pack, inp);
 Object.assign(inp, R.inputs); // the study describes the inputs as the model used them (old requests may carry air cooling or an out-of-range density)
 R.levers = levers(pack, inp, R); R.risks = risks(pack, inp, R);
@@ -25,5 +26,7 @@ for (const r of ["n1", "2n", "tier4"]) if (r !== inp.redund) tryS(`Redundancy: $
 tryS("Transformers ordered at start", { levers: { lptEarly: !inp.levers.lptEarly } });
 tryS("First token on a first phase", { levers: { phase: !inp.levers.phase } });
 R.sensitivities = sens;
+// the same state under each cooling type, at each type's default temperatures (and the chosen ones for the chosen type)
+R.coolingCompare = ["liquid", "liquid_tower", "air"].map(c => coolingModel(pack, inp, { cool: c }));
 R.inputs = inp; R.missing = [...pack.missing]; R.stages = STAGES;
 process.stdout.write(JSON.stringify(R));
